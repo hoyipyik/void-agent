@@ -1,0 +1,89 @@
+[project]
+name = "void-agent"
+version = "0.1.0"
+description = "A tiny agent core where everything is a tool — MCP servers, skills, even the human — plus a terminal UI to run it."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{ name = "hoyipyik" }]
+keywords = ["agent", "llm", "framework", "react", "human-in-the-loop"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = ["pydantic>=2.7"]
+
+[project.urls]
+Homepage = "https://github.com/hoyipyik/void-agent"
+Repository = "https://github.com/hoyipyik/void-agent"
+Issues = "https://github.com/hoyipyik/void-agent/issues"
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.40"]
+openai = ["openai>=1.40"]
+# `void_agent.mcp` — an MCP server's tools as this runtime's tools.
+mcp = ["mcp>=2.2"]
+# `void_agent.skills` needs nothing: a skill is Markdown in a folder.
+
+[dependency-groups]
+# The CLI (cli/) ships in the repo, not the wheel, so its dependencies are a
+# group, not a published extra. It mounts MCP servers for whichever agent
+# runs, so it needs the SDK; its own toolbox searches with ripgrep. The
+# wheel exists for two platforms and the sdist is ripgrep's Rust source, so
+# the marker names exactly those two — anywhere else a compiler would be
+# pulled in to build a search tool, and PATH answers instead. The released
+# binaries carry the official `rg` for their platform
+# (`scripts/pack.py --fetch-ripgrep`).
+cli = [
+    "textual>=8,<9",
+    "httpx>=0.27",
+    "mcp>=2.2",
+    "ripgrep>=14; (sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'darwin' and platform_machine == 'arm64')",
+]
+# `make cli-build` packs the CLI into one binary.
+build = ["pyinstaller>=6.22"]
+dev = [
+    { include-group = "cli" },
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+    "pyright>=1.1.380",
+    "anthropic>=0.40",
+    "openai>=1.40",
+    "httpx>=0.27",
+    "mcp>=2.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/void_agent"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+# Tests that reach past the public API. They pass against a checkout; a
+# compiled wheel folds the internals away, so `scripts/compile.py --verify`
+# runs the suite with `-m "not internals"`.
+markers = ["internals: reaches into modules the public API does not export"]
+
+[tool.ruff]
+line-length = 99
+src = ["src", "cli", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.pyright]
+include = ["src", "cli", "tests", "scripts"]
+typeCheckingMode = "strict"

@@ -9,7 +9,10 @@ it "not user instructions" — it can wake the session, never speak for the
 user. An ask with no answer after it — or marked dropped — tells the model
 the wait ended without one; asking again is its call. An attachment (a
 `file` part) is named here — `[attachment: shot.png (image/png)]` — and
-sent intact by the sibling projection, `context_content`."""
+sent intact by the sibling projection, `context_content`. A tool's output
+is rendered whole: core never decides what the model may forget. An
+application that wants a cap passes `tool_output_limit`, and the line is
+cut there with an ellipsis."""
 
 from __future__ import annotations
 
@@ -18,11 +21,9 @@ from typing import Any, cast
 
 from void_agent.core.parts.attachment import attachment_label
 
-TOOL_OUTPUT_CONTEXT_LIMIT = 500
 
-
-def _clip(text: str, limit: int) -> str:
-    if len(text) <= limit:
+def _clip(text: str, limit: int | None) -> str:
+    if limit is None or len(text) <= limit:
         return text
     return text[:limit] + "…"
 
@@ -57,13 +58,13 @@ def _plan_line(items: list[Any]) -> str:
     return "[plan: " + " | ".join(entries) + "]"
 
 
-def _tool_line(part: dict[str, Any]) -> str:
+def _tool_line(part: dict[str, Any], tool_output_limit: int | None) -> str:
     name = str(part.get("toolName", "?"))
     rendered_input = _compact(part.get("input")) if "input" in part else ""
     call = f"{name}({rendered_input})"
     match part.get("state"):
         case "output-available":
-            output = _clip(_compact(part.get("output")), TOOL_OUTPUT_CONTEXT_LIMIT)
+            output = _clip(_compact(part.get("output")), tool_output_limit)
             return f"[tool {call} → {output}]"
         case "output-error":
             return f"[tool {call} → ERROR: {part.get('errorText', '')}]"
@@ -89,16 +90,17 @@ def _ask_line(data: dict[str, Any]) -> str:
     return line + "]"
 
 
-def part_line(part: dict[str, Any]) -> str | None:
+def part_line(part: dict[str, Any], *, tool_output_limit: int | None = None) -> str | None:
     """One part as the MODEL reads it — a compact bracketed line for every
     part that carries state, the text itself for a text part — or None for
-    a part with nothing to say (pure pacing, an unknown kind, blank text)."""
+    a part with nothing to say (pure pacing, an unknown kind, blank text).
+    A tool's output is whole unless `tool_output_limit` cuts it."""
     match part.get("type"):
         case "text":
             text = str(part.get("text", "")).strip()
             return text or None
         case "dynamic-tool":
-            return _tool_line(part)
+            return _tool_line(part, tool_output_limit)
         case "data-plan":
             items = _part_data(part).get("items", [])
             return _plan_line(items)
@@ -141,7 +143,7 @@ def part_line(part: dict[str, Any]) -> str | None:
             return None
 
 
-def context_text(parts: list[dict[str, Any]]) -> str:
+def context_text(parts: list[dict[str, Any]], *, tool_output_limit: int | None = None) -> str:
     """A persisted parts array as the MODEL reads it on the next turn.
 
     Every part that carries state speaks in a compact bracketed line; text
@@ -149,6 +151,11 @@ def context_text(parts: list[dict[str, Any]]) -> str:
     `context_content` for the projection that sends it. `data-trigger`
     content arrives wrapped in a fixed envelope naming it external data —
     the runtime writes the envelope, so the wrapped text cannot claim user
-    authority.
+    authority. A tool's output is rendered whole; `tool_output_limit` is
+    the application's cap on it, in characters, None for none.
     """
-    return "\n".join(line for part in parts if (line := part_line(part)) is not None)
+    return "\n".join(
+        line
+        for part in parts
+        if (line := part_line(part, tool_output_limit=tool_output_limit)) is not None
+    )

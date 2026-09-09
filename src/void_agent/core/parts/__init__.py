@@ -10,12 +10,11 @@
 
 from void_agent.core.parts.accumulator import PartsAccumulator
 from void_agent.core.parts.content import context_content
-from void_agent.core.parts.context import TOOL_OUTPUT_CONTEXT_LIMIT, context_text
+from void_agent.core.parts.context import context_text
 from void_agent.core.parts.text import parts_text
 from void_agent.core.parts.usage import total_usage, usage_of, usages
 
 __all__ = [
-    "TOOL_OUTPUT_CONTEXT_LIMIT",
     "PartsAccumulator",
     "context_content",
     "context_text",

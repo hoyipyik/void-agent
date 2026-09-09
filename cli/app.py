@@ -44,7 +44,7 @@ from cli.providers.catalog import (
     provider_of,
 )
 from cli.providers.ollama import Ollama, OllamaDown, find_installed, usable
-from cli.registry import AGENTS_DIR, REGISTRY, AgentLoadError, Registry
+from cli.registry import AGENTS_DIR, AgentLoadError, Registry, default_registry
 from cli.screens import AgentPicker, KeyPrompt, McpPicker, ModelPicker, SkillPicker
 from cli.session import SessionStore
 from cli.shell import Shell
@@ -91,7 +91,7 @@ class VoidApp(App[None]):
         super().__init__()
         self.build_agent = build_agent
         # The agents that exist for this process: what `/agent` can choose.
-        self.agents = agents or REGISTRY
+        self.agents = agents or default_registry()
         # The MCP servers this process mounted: the same tools whichever
         # agent runs, which is why the registry, not the agent, holds them.
         self.bench = bench or Bench(log_dir=config_file.parent / LOG_DIR)

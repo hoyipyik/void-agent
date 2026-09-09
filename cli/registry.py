@@ -440,5 +440,15 @@ def _package(name: str, path: list[str]) -> None:
     package.__path__ = path
 
 
-REGISTRY = Registry()
-build_agent = REGISTRY.build_agent
+_default: Registry | None = None
+
+
+def default_registry() -> Registry:
+    """The built-in shelf alone, scanned once, on first use: what an app
+    given no registry runs on. Nothing scans at import — the toolbox
+    subprocess imports this module too, and should start without reading
+    a single agent."""
+    global _default
+    if _default is None:
+        _default = Registry()
+    return _default

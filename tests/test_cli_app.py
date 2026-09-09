@@ -1312,3 +1312,39 @@ async def test_the_board_says_which_directory_the_built_in_server_may_touch(
         assert "work" in row  # the directory it is rooted in
         await pilot.press("escape")
         await pilot.pause()
+
+
+async def test_slash_agent_shows_each_rows_source_and_why_one_cannot_load(tmp_path: Path) -> None:
+    home = tmp_path / "agents"
+    home.mkdir()
+    (home / "broken.py").write_text('"""will not import"""\nimport no_such_module\n')
+    registry = Registry(sources=(BUILTIN, folder(home, label="~/agents")))
+    app = VoidApp(
+        registry.build_agent,
+        store=SessionStore(tmp_path / "sessions"),
+        config=CONFIGURED,
+        config_file=tmp_path / "config.json",
+        agents=registry,
+        ollama=ollama_down(),
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        # What the scan could not load is said once the log is up.
+        said = str(app.query(".error").last().render())
+        assert "broken" in said and "~/agents" in said and "no_such_module" in said
+        await pilot.press(*"/agent", "enter")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, AgentPicker)
+        rows = picker.query_one(OptionList)
+        texts = [str(rows.get_option_at_index(i).prompt) for i in range(rows.option_count)]
+        assert any("universal" in text and "built-in" in text for text in texts)
+        broken = next(text for text in texts if "broken" in text)
+        assert "~/agents" in broken and "cannot load" in broken and "no_such_module" in broken
+        await pilot.press("4")  # the broken one may still be chosen: the turn says why
+        await pilot.pause()
+        assert app.config.agent == "broken"
+        await pilot.press(*"hi", "enter")
+        await finished(app)
+        await pilot.pause()
+        assert "cannot load" in app.shell.replies()[-1].source

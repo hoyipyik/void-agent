@@ -37,9 +37,10 @@ TEXT_APPLICATION_TYPES = frozenset(
     }
 )
 
-# Provider limits, roughly: 5 MB an image, 32 MB a PDF; text is the context
+# Provider limits, roughly: 10 MB an image (the Claude API's own figure;
+# a cloud platform's may be half that), 32 MB a PDF; text is the context
 # window's problem, so it is capped well below it.
-IMAGE_LIMIT = 5 * 1024 * 1024
+IMAGE_LIMIT = 10 * 1024 * 1024
 PDF_LIMIT = 32 * 1024 * 1024
 TEXT_LIMIT = 200 * 1024
 

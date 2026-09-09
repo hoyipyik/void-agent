@@ -57,7 +57,9 @@ def test_what_cannot_be_attached_says_why(tmp_path: Path) -> None:
     assert "no such file" in str(read_attachment(tmp_path / "missing.png"))
     (tmp_path / "a.zip").write_bytes(b"\x00\x01\x02\xff")
     assert "unsupported" in str(read_attachment(tmp_path / "a.zip"))
-    (tmp_path / "big.png").write_bytes(b"\x00" * (5 * 1024 * 1024 + 1))
+    (tmp_path / "large.png").write_bytes(b"\x00" * (5 * 1024 * 1024 + 1))
+    assert isinstance(read_attachment(tmp_path / "large.png"), Attachment)  # under 10 MB
+    (tmp_path / "big.png").write_bytes(b"\x00" * (10 * 1024 * 1024 + 1))
     assert "too large" in str(read_attachment(tmp_path / "big.png"))
     (tmp_path / "empty.png").write_bytes(b"")
     assert "empty" in str(read_attachment(tmp_path / "empty.png"))

@@ -9,7 +9,8 @@ the model) are ours; provider SDKs are quarantined in `providers/`.
 ```text
 src/void_agent/core/     the concepts, finely split (one concern per file):
                          leaves errors, content (text/image/PDF inputs), messages, ask (a question as a
-                         value); packages human/ (attendant: who answers —
+                         value), usage (what a round-trip cost as a value);
+                         packages human/ (attendant: who answers —
                          the protocol, the ambient contextvar, and the two
                          ready-made ones: `ScriptedHuman` and
                          `HumanChannel`, paired with a queue of `Question`s
@@ -59,10 +60,10 @@ screenshots/             what scripts/screenshots.py drew; committed, since
 tests/                   behavior-named, ScriptedLlm as the seam
 ```
 
-Dependencies point one way inside core: `messages → content`, `llm → content/events/errors`,
-`agent → everything below`,
+Dependencies point one way inside core: `messages → content`,
+`llm → content/events/errors/usage`, `agent → everything below`,
 `builtins → tool/events`, `tool → ask/errors/events/human`,
-`human → ask/events`, `events → ask`; then `providers → core`,
+`human → ask/events`, `events → ask/usage`, `parts → events/usage`; then `providers → core`,
 `mcp → core`, `skills → core`; then `cli → void_agent`. Concept modules
 never import providers, and the framework never imports the CLI: a client
 that mounts an agent is an application above it.
@@ -120,6 +121,14 @@ that mounts an agent is an application above it.
   a path.
 - `data-step` is stream-only. Reserved data kinds are refused at `Progress`
   construction — a tool can never forge provenance-carrying parts.
+- The account is the provider's word, carried, never estimated: a
+  `ModelStep` carries the `Usage` its provider reported (or None), the
+  loop reports it as `UsageReported` the moment the step returns — before
+  the step's calls run, so a crash never loses it — and it persists as a
+  `data-usage` part the model never reads (`context_text` is silent on
+  it). `input` is the whole prompt, cached tokens inside it, whatever the
+  API's own split. Visibility passes it as progress, so a sub-agent's
+  round-trips land on the root's account.
 - Framing (`start`/`finish`/`error`) is the transport's job, never the
   runtime's.
 - Events are observation: losing one must never affect correctness.

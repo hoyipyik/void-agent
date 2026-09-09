@@ -52,8 +52,25 @@ def text_delta(text: str) -> Any:
     )
 
 
-def final_message(*blocks: Any) -> Any:
-    return SimpleNamespace(content=list(blocks))
+def final_message(*blocks: Any, usage: Any = None) -> Any:
+    return SimpleNamespace(content=list(blocks), usage=usage)
+
+
+def anthropic_usage(
+    input_tokens: int,
+    output_tokens: int,
+    *,
+    cache_read: int | None = None,
+    cache_creation: int | None = None,
+) -> Any:
+    """The SDK's usage shape: the cached counts are None when the request
+    used no cache at all."""
+    return SimpleNamespace(
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cache_read_input_tokens=cache_read,
+        cache_creation_input_tokens=cache_creation,
+    )
 
 
 def text_block(text: str) -> Any:
@@ -66,7 +83,19 @@ def tool_use_block(call_id: str, name: str, input: dict[str, Any]) -> Any:
 
 def chunk(content: str | None = None, tool_calls: list[Any] | None = None) -> Any:
     delta = SimpleNamespace(content=content, tool_calls=tool_calls)
-    return SimpleNamespace(choices=[SimpleNamespace(delta=delta)])
+    return SimpleNamespace(choices=[SimpleNamespace(delta=delta)], usage=None)
+
+
+def usage_chunk(prompt_tokens: int, completion_tokens: int, *, cached: int | None = None) -> Any:
+    """The last chunk when usage was asked for: no choices, the usage
+    alone; `prompt_tokens_details` is absent on many compatible servers."""
+    details = SimpleNamespace(cached_tokens=cached, cache_write_tokens=None) if cached else None
+    usage = SimpleNamespace(
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        prompt_tokens_details=details,
+    )
+    return SimpleNamespace(choices=[], usage=usage)
 
 
 def call_delta(

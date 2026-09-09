@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -39,6 +40,8 @@ from void_agent import (
     ToolSpec,
     TranscriptEntry,
     TurnResult,
+    Usage,
+    UsageReported,
     call,
     say,
     tool,
@@ -379,6 +382,44 @@ async def test_step_events_count_the_loop() -> None:
     _, events = await run_collecting(agent, {})
     steps = [event.step for event in events if isinstance(event, StepStart)]
     assert steps == [1, 2]
+
+
+def costing(step: ModelStep, input: int, output: int) -> ModelStep:
+    return replace(step, usage=Usage(input=input, output=output))
+
+
+async def test_each_steps_usage_is_reported_before_its_calls_run() -> None:
+    script = [costing(call("echo", {"text": "x"}), 100, 5), costing(say("done"), 130, 3)]
+    agent = make_agent(ScriptedLlm(script)).tool(echo)
+    _, events = await run_collecting(agent, {})
+    kinds = [type(event).__name__ for event in events]
+    assert kinds.index("UsageReported") < kinds.index("ToolInputStart")
+    reported = [event.usage for event in events if isinstance(event, UsageReported)]
+    assert reported == [Usage(input=100, output=5), Usage(input=130, output=3)]
+
+
+async def test_a_step_that_says_nothing_of_its_cost_reports_nothing() -> None:
+    agent = make_agent(ScriptedLlm([say("done")]))
+    _, events = await run_collecting(agent, {})
+    assert not any(isinstance(event, UsageReported) for event in events)
+
+
+async def test_a_sub_agents_usage_reaches_the_root_stream() -> None:
+    sub = Agent(
+        ScriptedLlm([costing(say("sub says hi"), 40, 4)]), "helper", "helps", input_type=EchoIn
+    )
+    script = [
+        costing(call("helper", {"text": "hello"}), 100, 5),
+        costing(say("root answer"), 150, 6),
+    ]
+    agent = make_agent(ScriptedLlm(script)).tool(sub)
+    _, events = await run_collecting(agent, {})
+    reported = [event.usage for event in events if isinstance(event, UsageReported)]
+    assert reported == [
+        Usage(input=100, output=5),
+        Usage(input=40, output=4),
+        Usage(input=150, output=6),
+    ]
 
 
 async def test_a_registered_sub_agents_answer_lands_in_the_parent_transcript() -> None:

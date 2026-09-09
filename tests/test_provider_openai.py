@@ -3,11 +3,12 @@ fake client that replays canned stream chunks."""
 
 from __future__ import annotations
 
+import json
 from typing import Any, cast
 
 from openai import AsyncOpenAI
 from tests.provider_fakes import OpenAiClient as FakeClient
-from tests.provider_fakes import call_delta, chunk
+from tests.provider_fakes import call_delta, chunk, usage_chunk
 
 from void_agent import (
     AssistantStep,
@@ -18,6 +19,7 @@ from void_agent import (
     ToolReturn,
     ToolReturns,
     ToolSpec,
+    Usage,
     UserText,
     tool_call,
 )
@@ -146,3 +148,44 @@ async def test_index_reuse_by_compatible_servers_yields_separate_calls() -> None
         ("c1", "left", {"a": 1}),
         ("c2", "right", {"b": 2}),
     ]
+
+
+async def test_usage_is_asked_for_and_read_off_the_last_chunk() -> None:
+    fake = FakeClient([chunk(content="ok"), usage_chunk(1200, 45, cached=900)])
+    llm = OpenAiLlm("m", client=cast(AsyncOpenAI, fake))
+    step = await llm.step([UserText("hi")], [], EventSender())
+    assert fake.requests[0]["stream_options"] == {"include_usage": True}
+    assert step.text == "ok"
+    assert step.usage == Usage(input=1200, output=45, cache_read=900)
+
+
+async def test_usage_without_a_cache_split_reads_plainly() -> None:
+    fake = FakeClient([chunk(content="ok"), usage_chunk(30, 45)])
+    llm = OpenAiLlm("m", client=cast(AsyncOpenAI, fake))
+    step = await llm.step([UserText("hi")], [], EventSender())
+    assert step.usage == Usage(input=30, output=45)
+
+
+async def test_a_server_that_reports_no_usage_leaves_the_step_uncounted() -> None:
+    fake = FakeClient([chunk(content="ok")])
+    llm = OpenAiLlm("m", client=cast(AsyncOpenAI, fake))
+    step = await llm.step([UserText("hi")], [], EventSender())
+    assert step.usage is None
+
+
+async def test_extra_can_take_the_usage_request_back() -> None:
+    fake = FakeClient([chunk(content="ok")])
+    llm = OpenAiLlm("m", client=cast(AsyncOpenAI, fake), extra={"stream_options": None})
+    await llm.step([UserText("hi")], [], EventSender())
+    assert fake.requests[0]["stream_options"] is None
+
+
+async def test_a_replayed_steps_usage_never_reaches_the_wire() -> None:
+    fake = FakeClient([chunk(content="ok")])
+    llm = OpenAiLlm("m", client=cast(AsyncOpenAI, fake))
+    costed = ModelStep(text="prior", usage=Usage(input=1200, output=45, cache_read=900))
+    await llm.step([UserText("hi"), AssistantStep(costed)], [], EventSender())
+    wire = json.dumps(
+        {key: value for key, value in fake.requests[0].items() if key != "stream_options"}
+    )
+    assert "1200" not in wire and "900" not in wire and "usage" not in wire

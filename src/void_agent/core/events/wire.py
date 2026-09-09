@@ -25,6 +25,7 @@ from void_agent.core.events.types import (
     ToolInputStart,
     ToolOutputAvailable,
     ToolOutputError,
+    UsageReported,
 )
 
 
@@ -91,6 +92,16 @@ def to_wire(event: AgentEvent) -> dict[str, Any]:
                 "toolCallId": tool_call_id,
                 "errorText": error_text,
                 "dynamic": True,
+            }
+        case UsageReported(usage):
+            return {
+                "type": "data-usage",
+                "data": {
+                    "input": usage.input,
+                    "output": usage.output,
+                    "cacheRead": usage.cache_read,
+                    "cacheWrite": usage.cache_write,
+                },
             }
         case PlanUpdated(items):
             return {"type": "data-plan", "data": {"items": items}}

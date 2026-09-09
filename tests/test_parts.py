@@ -29,9 +29,14 @@ from void_agent import (
     ToolInputStart,
     ToolOutputAvailable,
     ToolOutputError,
+    Usage,
+    UsageReported,
     context_content,
     context_text,
     parts_text,
+    total_usage,
+    usage_of,
+    usages,
 )
 
 
@@ -362,3 +367,49 @@ def test_a_file_part_without_a_declared_media_type_takes_the_data_urls() -> None
     part: dict[str, Any] = {"type": "file", "url": PNG_DATA_URL}
     assert context_content([part]) == (ImageContent(data=b"image-test", media_type="image/png"),)
     assert context_text([part]) == "[attachment (image/png)]"
+
+
+def test_usage_is_persisted_as_a_part_in_stream_order() -> None:
+    parts = folded(
+        UsageReported(Usage(input=100, output=5)),
+        TextStart(id="t"),
+        TextDelta(id="t", delta="hi"),
+        UsageReported(Usage(input=120, output=7, cache_read=100)),
+    )
+    assert parts == [
+        {
+            "type": "data-usage",
+            "data": {"input": 100, "output": 5, "cacheRead": 0, "cacheWrite": 0},
+        },
+        {"type": "text", "text": "hi"},
+        {
+            "type": "data-usage",
+            "data": {"input": 120, "output": 7, "cacheRead": 100, "cacheWrite": 0},
+        },
+    ]
+
+
+def test_the_model_never_reads_the_account() -> None:
+    parts = folded(UsageReported(Usage(input=100, output=5)))
+    assert context_text(parts) == ""
+    assert context_content(parts) == ()
+
+
+def test_the_account_reads_back_and_sums() -> None:
+    parts = folded(
+        UsageReported(Usage(input=100, output=5)),
+        UsageReported(Usage(input=120, output=7, cache_read=100, cache_write=20)),
+        Progress(kind="note", data={"input": 999}),
+    )
+    assert usages(parts) == [
+        Usage(input=100, output=5),
+        Usage(input=120, output=7, cache_read=100, cache_write=20),
+    ]
+    assert total_usage(parts) == Usage(input=220, output=12, cache_read=100, cache_write=20)
+    assert usage_of(parts[2]) is None
+    assert total_usage([]) == Usage(input=0, output=0)
+
+
+def test_a_malformed_usage_part_reads_as_nothing() -> None:
+    assert usage_of({"type": "data-usage", "data": "bogus"}) is None
+    assert usage_of({"type": "data-usage", "data": {"input": "many"}}) is None

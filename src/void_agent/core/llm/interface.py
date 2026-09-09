@@ -12,6 +12,7 @@ from typing import Any, Protocol
 
 from void_agent.core.content import ContentPart
 from void_agent.core.events import EventSender
+from void_agent.core.usage import Usage
 
 # ── one round-trip ────────────────────────────────────────────────────────
 
@@ -36,11 +37,14 @@ class ToolSpec:
 
 @dataclass(frozen=True, slots=True)
 class ModelStep:
-    """The semantic result of one model round-trip."""
+    """The semantic result of one model round-trip. `usage` is what the
+    provider said it cost, or None when it said nothing — the loop reports
+    it, so a provider only has to carry it."""
 
     text: str
     tool_calls: tuple[ToolCall, ...] = ()
     raw: Any = None
+    usage: Usage | None = None
 
 
 # ── the transcript a provider renders ─────────────────────────────────────

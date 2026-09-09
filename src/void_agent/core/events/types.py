@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from void_agent.core.ask import Call
+from void_agent.core.usage import Usage
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +76,19 @@ class ToolOutputAvailable:
 class ToolOutputError:
     tool_call_id: str
     error_text: str
+
+
+@dataclass(frozen=True, slots=True)
+class UsageReported:
+    """One model round-trip cost this many tokens, as the provider counted
+    them. Reported by the loop the moment the step returns — before the
+    step's calls run, so a call that crashes never loses the account. It
+    carries no step number: a sub-agent's round-trips report through the
+    same stream (visibility passes it as progress) and must not disturb
+    the root's step rhythm. Persisted as a `data-usage` part, so a session
+    can be tallied from what it kept; the model never reads it."""
+
+    usage: Usage
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,6 +162,7 @@ RESERVED_DATA_KINDS = frozenset(
         "cancelled",
         "error",
         "reflection",
+        "usage",
     }
 )
 
@@ -184,6 +199,7 @@ AgentEvent = (
     | ToolInputAvailable
     | ToolOutputAvailable
     | ToolOutputError
+    | UsageReported
     | PlanUpdated
     | ReflectionMade
     | AskIssued

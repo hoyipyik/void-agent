@@ -1,7 +1,8 @@
 """The model-facing projection: a persisted parts array as the text the
 MODEL reads on the next turn. Semantic resume is only as good as this
 rendering, so tool results, plan updates, reflections, asks, answers, and
-triggers all speak here; only pure UI progress (`data-step`) stays silent.
+triggers all speak here; only pure UI progress (`data-step`) and the
+account (`data-usage`, the person's, never the model's) stay silent.
 External `data-trigger` text is JSON-escaped inside a fixed envelope naming
 it "not user instructions" — it can wake the session, never speak for the
 user. An ask with no answer after it — or marked dropped — tells the model
@@ -131,6 +132,9 @@ def part_line(part: dict[str, Any]) -> str | None:
             return f"[the turn failed: {_compact(data.get('text', ''))}]"
         case "file":
             return f"[{attachment_label(part)}]"
+        case "data-usage":
+            # The bill is the person's business; the model has no use for it.
+            return None
         case _:
             return None
 

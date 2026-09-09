@@ -55,6 +55,7 @@ from void_agent.core.events import (
     ToolInputStart,
     ToolOutputAvailable,
     ToolOutputError,
+    UsageReported,
     to_wire,
 )
 from void_agent.core.human import (
@@ -86,8 +87,17 @@ from void_agent.core.llm import (
     tool_call,
 )
 from void_agent.core.messages import Message, Role
-from void_agent.core.parts import PartsAccumulator, context_content, context_text, parts_text
+from void_agent.core.parts import (
+    PartsAccumulator,
+    context_content,
+    context_text,
+    parts_text,
+    total_usage,
+    usage_of,
+    usages,
+)
 from void_agent.core.tool import Approval, Tool, tool
+from void_agent.core.usage import NO_USAGE, Usage
 
 try:
     __version__ = importlib.metadata.version("void-agent")
@@ -100,6 +110,7 @@ __all__ = [
     "HELD_TOOL_OUTPUT",
     "HUMAN",
     "INTERNAL_PUBLIC_TEXT",
+    "NO_USAGE",
     "RESERVED_DATA_KINDS",
     "Agent",
     "AgentEvent",
@@ -162,6 +173,8 @@ __all__ = [
     "TranscriptEntry",
     "TurnResult",
     "Unanswered",
+    "Usage",
+    "UsageReported",
     "UserContent",
     "UserText",
     "attended",
@@ -175,4 +188,7 @@ __all__ = [
     "to_wire",
     "tool",
     "tool_call",
+    "total_usage",
+    "usage_of",
+    "usages",
 ]

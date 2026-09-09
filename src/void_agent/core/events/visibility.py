@@ -27,6 +27,7 @@ from void_agent.core.events.types import (
     ToolInputStart,
     ToolOutputAvailable,
     ToolOutputError,
+    UsageReported,
 )
 
 
@@ -51,8 +52,11 @@ def category(event: AgentEvent) -> EventCategory:
             return EventCategory.TEXT
         case ToolInputStart() | ToolInputAvailable() | ToolOutputAvailable() | ToolOutputError():
             return EventCategory.TOOL_LIFECYCLE
+        # A subtree's usage is spent whoever spent it: it passes as progress,
+        # so the account at the root is the whole tree's.
         case (
-            PlanUpdated()
+            UsageReported()
+            | PlanUpdated()
             | ReflectionMade()
             | AskIssued()
             | AskAnswered()

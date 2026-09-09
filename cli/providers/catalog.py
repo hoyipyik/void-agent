@@ -36,6 +36,9 @@ class ModelInfo:
     name: str
     blurb: str
     recommended: bool = False
+    # Whether the model can call tools — what an agent runs on. Every
+    # cloud model can; an Ollama model says so through `/api/show`.
+    tools: bool = True
 
 
 # The recommended model of each keyed provider is its default and heads

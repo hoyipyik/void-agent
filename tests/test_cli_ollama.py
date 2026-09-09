@@ -8,7 +8,7 @@ from typing import Any, cast
 
 import httpx
 import pytest
-from cli.providers.ollama import DEFAULT_HOST, Ollama, OllamaDown, alias, host_url
+from cli.providers.ollama import DEFAULT_HOST, Ollama, OllamaDown, alias, host_url, usable
 
 TAGS: dict[str, Any] = {
     "models": [
@@ -68,6 +68,19 @@ async def test_the_installed_models_become_rows_with_their_size_and_what_they_ca
     assert rows[2].blurb == "400 MB · no tools"  # an agent cannot run on it
 
 
+async def test_only_the_models_that_can_call_tools_are_usable() -> None:
+    """Ollama is offered where it has a model an agent can run on; the
+    rest are still installed — `/status` counts them — but never listed."""
+    rows = await Ollama("http://box:11434", transport=httpx.MockTransport(server)).installed()
+    assert [row.tools for row in rows] == [True, True, False, True]
+    assert [row.id for row in usable(rows)] == [
+        "qwen3:8b",
+        "gemma4:31b-mlx",
+        "someone/Qwen3.8-27B-Uncensored:q8_0",
+    ]
+    assert usable(()) == ()
+
+
 async def test_a_server_that_does_not_answer_is_down() -> None:
     ollama = Ollama("http://box:11434", transport=httpx.MockTransport(down))
     with pytest.raises(OllamaDown) as caught:
@@ -103,6 +116,7 @@ async def test_two_builds_that_differ_only_in_quantisation_keep_their_tags() -> 
 
     rows = await Ollama("http://box:11434", transport=httpx.MockTransport(twins)).installed()
     assert [row.name for row in rows] == ["llama3:q4_K_M", "llama3:q8_0", "llama3:8b"]
+    assert all(row.tools for row in rows)  # a server that will not say is given the benefit
 
 
 def test_ollama_host_is_read_the_way_ollama_reads_it() -> None:

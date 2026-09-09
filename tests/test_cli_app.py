@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import pytest
 from cli.agents import Registry
 from cli.app import BuildAgent, VoidApp
 from cli.clipboard import Clipboard
@@ -20,7 +21,8 @@ from cli.widgets import Panel, UserBubble, Welcome
 from cli.widgets.welcome import LOGO_WIDTH
 from tests.test_cli_ollama import down, server
 from textual.containers import VerticalScroll
-from textual.widgets import Input
+from textual.widgets import Input, OptionList
+from textual.widgets.option_list import OptionDoesNotExist
 
 from void_agent import Agent, EventSender, Message, ScriptedLlm, say
 
@@ -57,6 +59,27 @@ def ollama_serving() -> Ollama:
 
 def ollama_down() -> Ollama:
     return Ollama(OLLAMA_HOST, transport=httpx.MockTransport(down))
+
+
+def embeddings_only(request: httpx.Request) -> httpx.Response:
+    """A server whose one model cannot call tools: nothing an agent runs on."""
+    if request.url.path == "/api/tags":
+        return httpx.Response(
+            200, json={"models": [{"name": "nomic-embed-text:latest", "size": 274_000_000}]}
+        )
+    if request.url.path == "/api/show":
+        return httpx.Response(200, json={"capabilities": ["embedding"]})
+    return httpx.Response(404)
+
+
+def ollama_without_tools() -> Ollama:
+    return Ollama(OLLAMA_HOST, transport=httpx.MockTransport(embeddings_only))
+
+
+def offered_providers(app: VoidApp) -> list[str | None]:
+    """The rows the key prompt offers, by provider."""
+    providers = app.screen.query_one("#providers", OptionList)
+    return [providers.get_option_at_index(i).id for i in range(providers.option_count)]
 
 
 def make_app(
@@ -393,7 +416,9 @@ async def test_the_picker_lists_what_ollama_has_installed_and_one_needs_no_key(
         picker = app.screen
         assert isinstance(picker, ModelPicker)
         head = picker.choices.get_option("head-ollama").prompt
-        assert OLLAMA_HOST in str(head)
+        assert OLLAMA_HOST in str(head) and "3 usable" in str(head)
+        with pytest.raises(OptionDoesNotExist):
+            picker.choices.get_option("tiny:latest")  # cannot call tools: not listed
         picker.choices.highlighted = picker.choices.get_option_index("gemma4:31b-mlx")
         await pilot.press("enter")
         await pilot.pause()
@@ -405,17 +430,68 @@ async def test_the_picker_lists_what_ollama_has_installed_and_one_needs_no_key(
     assert saved["anthropic_api_key"] == "sk-test"  # the cloud key is kept
 
 
-async def test_with_ollama_down_the_picker_says_so_and_still_lists_the_rest(
+async def test_with_ollama_down_the_picker_lists_the_cloud_rows_and_no_ollama_at_all(
     tmp_path: Path,
 ) -> None:
+    """Ollama is extra: where it is not there, nothing says so in the
+    picker — not a header, not a hint."""
     app = make_app(tmp_path)
     async with app.run_test() as pilot:
         await pilot.press(*"/model", "enter")
         await pilot.pause()
         picker = app.screen
         assert isinstance(picker, ModelPicker)
-        assert "not answering" in str(picker.choices.get_option("head-ollama").prompt)
+        with pytest.raises(OptionDoesNotExist):
+            picker.choices.get_option("head-ollama")
         assert picker.choices.get_option_index("gpt-5.6-terra") > 0
+
+
+async def test_an_ollama_without_a_model_that_can_call_tools_is_not_offered(
+    tmp_path: Path,
+) -> None:
+    app = make_app(tmp_path, ollama=ollama_without_tools())
+    async with app.run_test() as pilot:
+        await pilot.press(*"/model", "enter")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, ModelPicker)
+        with pytest.raises(OptionDoesNotExist):
+            picker.choices.get_option("head-ollama")
+        await pilot.press("escape")
+        await pilot.pause()
+        await pilot.press(*"/key", "enter")
+        await pilot.pause()
+        assert isinstance(app.screen, KeyPrompt)
+        assert offered_providers(app) == ["openai", "anthropic"]
+
+
+async def test_without_a_usable_ollama_the_first_prompt_offers_the_keyed_providers_only(
+    tmp_path: Path,
+) -> None:
+    app = make_app(tmp_path, config=Config())  # Ollama down
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert isinstance(app.screen, KeyPrompt)
+        assert offered_providers(app) == ["openai", "anthropic"]
+        await pilot.press("3")  # no third row to jump to
+        await pilot.pause()
+        assert isinstance(app.screen, KeyPrompt)
+        assert not isinstance(app.screen, ModelPicker)
+
+
+async def test_slash_key_ollama_with_nothing_usable_says_why(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.press(*"/key ollama", "enter")
+        await pilot.pause()
+        assert not isinstance(app.screen, ModelPicker)
+        assert "not answering" in str(app.query(".error").last().render())
+    app = make_app(tmp_path, ollama=ollama_without_tools())
+    async with app.run_test() as pilot:
+        await pilot.press(*"/key ollama", "enter")
+        await pilot.pause()
+        assert not isinstance(app.screen, ModelPicker)
+        assert "tools" in str(app.query(".error").last().render())
 
 
 async def test_a_bare_ollama_name_is_checked_against_what_is_installed(tmp_path: Path) -> None:
@@ -455,7 +531,8 @@ async def test_the_key_prompt_offers_ollama_which_opens_the_picker_instead(
     async with app.run_test() as pilot:
         await pilot.pause()
         assert isinstance(app.screen, KeyPrompt)
-        await pilot.press("3")  # Anthropic, OpenAI, Ollama
+        assert offered_providers(app) == ["openai", "anthropic", "ollama"]  # it has a usable model
+        await pilot.press("3")
         await pilot.pause()
         assert isinstance(app.screen, ModelPicker)
         app.screen.choices.highlighted = app.screen.choices.get_option_index("qwen3:8b")

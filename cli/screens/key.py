@@ -1,5 +1,6 @@
 """`/key`, and the first thing a shell with no provider asks: a provider,
-then its key."""
+then its key. Which providers are offered is the app's word: Ollama is
+on the list only where it has a model an agent can run on."""
 
 from __future__ import annotations
 
@@ -37,10 +38,16 @@ class KeyPrompt(ModalScreen[tuple[Provider, str] | None]):
     BINDINGS: ClassVar[list[BindingType]] = [("escape", "cancel", "Cancel")]
 
     def __init__(
-        self, config: Config, config_file_hint: str, provider: Provider | None = None
+        self,
+        config: Config,
+        config_file_hint: str,
+        provider: Provider | None = None,
+        *,
+        providers: tuple[Provider, ...] = PROVIDERS,
     ) -> None:
         super().__init__()
         self._provider: Provider | None = provider
+        self._providers = providers
         self._hint = config_file_hint
 
     def compose(self) -> ComposeResult:
@@ -64,16 +71,20 @@ class KeyPrompt(ModalScreen[tuple[Provider, str] | None]):
                 ),
                 id=provider,
             )
-            for index, provider in enumerate(PROVIDERS)
+            for index, provider in enumerate(self._providers)
         ]
         with Vertical(id="dialog"):
             yield Static("Choose a provider", classes="title")
             yield Static(
                 Content.from_markup(
                     "A cloud provider takes its key, saved to $path, readable only by you"
-                    " (the environment variable beside it works too). Ollama takes none:"
-                    " it lists what is installed.",
+                    " (the environment variable beside it works too).$ollama",
                     path=self._hint,
+                    ollama=(
+                        " Ollama takes none: it lists what is installed."
+                        if "ollama" in self._providers
+                        else ""
+                    ),
                 ),
                 classes="blurb",
             )
@@ -126,9 +137,9 @@ class KeyPrompt(ModalScreen[tuple[Provider, str] | None]):
         if self._provider is not None or event.key not in DIGITS:
             return
         index = int(event.key) - 1
-        if index < len(PROVIDERS):
+        if index < len(self._providers):
             event.stop()
-            self._chose(PROVIDERS[index])
+            self._chose(self._providers[index])
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         event.stop()

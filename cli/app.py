@@ -19,7 +19,7 @@ turn, when the registry builds the agent again from the config.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -34,8 +34,16 @@ from cli.config import Config, Switch, ToolState, save_config
 from cli.labels import model_label, tilde
 from cli.mcp.bench import LOG_DIR, Bench
 from cli.mcp.spec import MCP_FILE, SKILLS_DIR, ServerSpec, builtin_server, read_servers
-from cli.providers.catalog import PROVIDER_LABELS, ModelInfo, Provider, as_provider, provider_of
-from cli.providers.ollama import Ollama, OllamaDown, find_installed
+from cli.providers.catalog import (
+    KEYED,
+    PROVIDER_LABELS,
+    PROVIDERS,
+    ModelInfo,
+    Provider,
+    as_provider,
+    provider_of,
+)
+from cli.providers.ollama import Ollama, OllamaDown, find_installed, usable
 from cli.screens import AgentPicker, KeyPrompt, McpPicker, ModelPicker, SkillPicker
 from cli.session import SessionStore
 from cli.shell import Shell
@@ -134,7 +142,10 @@ class VoidApp(App[None]):
         # and the shell should not wait on it.
         self._mounting = asyncio.create_task(self._mount_mcp(), name="mcp-mount")
         if not self.config.configured():
-            self.push_screen(KeyPrompt(self.config, tilde(self._config_file)), self._key_entered)
+            self.push_screen(
+                KeyPrompt(self.config, tilde(self._config_file), providers=await self._offered()),
+                self._key_entered,
+            )
 
     async def on_unmount(self) -> None:
         await self.bench.close()
@@ -261,11 +272,15 @@ class VoidApp(App[None]):
                         f"unknown provider {named} — anthropic, openai or ollama"
                     )
                 elif provider == "ollama":
-                    await self.shell.note("Ollama takes no key — pick one of its installed models")
-                    await self._pick_model()
+                    await self._offer_ollama()
                 else:
                     self.push_screen(
-                        KeyPrompt(self.config, tilde(self._config_file), provider),
+                        KeyPrompt(
+                            self.config,
+                            tilde(self._config_file),
+                            provider,
+                            providers=await self._offered(),
+                        ),
                         self._key_entered,
                     )
             case _:
@@ -296,9 +311,41 @@ class VoidApp(App[None]):
         except OllamaDown:
             return None
 
+    async def _usable(self) -> tuple[ModelInfo, ...]:
+        """What Ollama has installed that an agent can run on — empty when
+        it does not answer or has no such model, and then it is offered
+        nowhere. Ollama is extra, never core: the CLI looks for it itself,
+        here, never in the environment's setup."""
+        return usable(await self._installed() or ())
+
+    async def _offered(self) -> tuple[Provider, ...]:
+        """The providers the key prompt lists: the keyed ones, and Ollama
+        where it has a usable model."""
+        return PROVIDERS if await self._usable() else KEYED
+
     async def _pick_model(self) -> None:
-        installed = await self._installed()
+        self._open_picker(await self._usable())
+
+    def _open_picker(self, installed: Sequence[ModelInfo]) -> None:
         self.push_screen(ModelPicker(self.config, self.ollama.host, installed), self._model_picked)
+
+    async def _offer_ollama(self) -> None:
+        """`/key ollama`: there is no key to take — the picker opens on
+        its models where it has one an agent can run on, else why not."""
+        try:
+            installed = await self.ollama.installed()
+        except OllamaDown as down:
+            await self.shell.complain(f"{down} — start it with `ollama serve`")
+            return
+        rows = usable(installed)
+        if not rows:
+            await self.shell.complain(
+                f"no model on Ollama at {self.ollama.host} can call tools —"
+                " `ollama pull` one that does; /status counts what is installed"
+            )
+            return
+        await self.shell.note("Ollama takes no key — pick one of its installed models")
+        self._open_picker(rows)
 
     async def _model_picked(self, choice: tuple[Provider, str] | None) -> None:
         if choice is not None:

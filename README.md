@@ -285,7 +285,20 @@ to be built on, and is not listed. Put such a module under
 `~/.void/agents`, or in any folder you name with `--workspace`, and
 `/agent` lists it: the file's stem is its name, the first line of its
 docstring the blurb, and every agent in the pool can call every other by
-name.
+name. What the scan does with a folder, in order:
+
+1. Takes every `name.py` and every `name/__init__.py` one level down, by
+   name, skipping anything that starts with `_` or `.`.
+2. Imports it. One that will not import is listed anyway, with the error
+   on its row; the rest go on.
+3. Looks for `build_agent`. Present, the module is an agent called
+   `name`; absent, it is a helper — importable by its siblings, never
+   listed.
+4. Reads the builder's signature: `build_agent(llm)` is handed the model,
+   `build_agent(llm, agents)` the model and the pool.
+5. Runs every builder once on a scripted model, so a name that is not
+   there, a cycle, or a builder that crashes shows on its row at start.
+   Each turn then builds the chosen one again on the real model.
 
 ```python
 # ~/.void/agents/writer.py

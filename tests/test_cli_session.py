@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
 from cli.session import CONTEXT_MESSAGES, SessionStore
 
@@ -58,6 +60,24 @@ def test_history_is_the_tail_of_the_context_window(tmp_path: Path) -> None:
     history = session.history()
     assert len(history) == CONTEXT_MESSAGES
     assert history[-1] == Message.user(f"m{CONTEXT_MESSAGES + 4}")
+
+
+def test_history_caps_one_tool_result_at_the_limit_it_is_given(tmp_path: Path) -> None:
+    session = SessionStore(tmp_path).new()
+    session.append("user", [text("search")])
+    huge = "x" * 10_000
+    result: dict[str, Any] = {
+        "type": "dynamic-tool",
+        "toolCallId": "c",
+        "toolName": "search",
+        "state": "output-available",
+        "input": {},
+        "output": huge,
+    }
+    session.append("assistant", [result])
+    assert session.history()[1] == Message.assistant(f"[tool search({{}}) → {json.dumps(huge)}]")
+    capped = session.history(tool_output_limit=40)
+    assert capped[1] == Message.assistant(f"[tool search({{}}) → {json.dumps(huge)[:40]}…]")
 
 
 def test_a_message_with_nothing_to_say_is_left_out_of_history(tmp_path: Path) -> None:

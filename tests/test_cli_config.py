@@ -42,6 +42,17 @@ def test_the_agent_is_the_files_choice_or_the_default(tmp_path: Path) -> None:
     assert load_config({}, path).agent == "deep"  # VOID_AGENT is the entry point's to read
 
 
+def test_the_context_tool_output_limit_is_the_files_or_the_default(tmp_path: Path) -> None:
+    path = tmp_path / "config.json"
+    assert load_config({}, path).tool_output_limit() == 8_000
+    save_config(path, Config(context_tool_output_limit=20_000))
+    assert load_config({}, path).tool_output_limit() == 20_000
+    save_config(path, Config(context_tool_output_limit=0))
+    assert load_config({}, path).tool_output_limit() is None  # 0 lifts the cap
+    path.write_text('{"context_tool_output_limit": "lots"}', encoding="utf-8")
+    assert load_config({}, path).context_tool_output_limit == 8_000
+
+
 def test_a_saved_config_fills_in_what_the_environment_lacks(tmp_path: Path) -> None:
     path = tmp_path / "config.json"
     save_config(path, Config(provider="openai", openai_api_key="k", openai_model="m"))

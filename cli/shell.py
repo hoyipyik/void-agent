@@ -507,7 +507,8 @@ class Shell(Screen[None]):
         and the status line saying what the turn is doing, and return the
         folded parts."""
         app = self.void
-        turn = Turn(app.build_agent(app.config), self.session.history())
+        history = self.session.history(tool_output_limit=app.config.tool_output_limit())
+        turn = Turn(app.build_agent(app.config), history)
         self._inflight = turn
         # What the session had spent before this turn; each round-trip adds
         # to it live, and the fold over the parts agrees once the turn is kept.

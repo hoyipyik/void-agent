@@ -22,6 +22,11 @@ from cli.providers.catalog import DEFAULT_MODELS, PROVIDERS, Provider, as_provid
 from cli.providers.ollama import DEFAULT_HOST, host_url
 
 DEFAULT_AGENT = "universal"
+# The most of one tool's result the model reads back from the session on a
+# later turn, in characters. Core renders it whole (`context_content`), and
+# an MCP server can hand back megabytes — a web search did, and the next
+# turn's request was refused for its size. 0 lifts the cap.
+DEFAULT_CONTEXT_TOOL_OUTPUT_LIMIT = 8_000
 
 # What the person did in `/mcp` and `/skill`. "on" is the absence of a
 # mark, so a server that grows a tool, or a shelf that grows a skill,
@@ -56,6 +61,8 @@ class Config:
     ollama_model: str = ""
     # The agent the CLI runs, by its name in the registry (`cli/agents/`).
     agent: str = DEFAULT_AGENT
+    # See DEFAULT_CONTEXT_TOOL_OUTPUT_LIMIT; the file's to change.
+    context_tool_output_limit: int = DEFAULT_CONTEXT_TOOL_OUTPUT_LIMIT
     # What `/mcp` and `/skill` marked: the servers never started, the tools
     # kept from the model, the ones that must be signed, and the skills
     # left off the shelf. Everything not named here is simply on.
@@ -154,6 +161,10 @@ class Config:
     def with_agent(self, agent: str) -> Config:
         return replace(self, agent=agent)
 
+    def tool_output_limit(self) -> int | None:
+        """The cap `Session.history` puts on one tool result, None for none."""
+        return self.context_tool_output_limit or None
+
     @classmethod
     def from_json(cls, data: Mapping[str, Any]) -> Config:
         defaults = cls()
@@ -168,12 +179,22 @@ class Config:
             ollama_host=host_url(str(data.get("ollama_host") or "")),
             ollama_model=str(data.get("ollama_model") or ""),
             agent=str(data.get("agent") or defaults.agent),
+            context_tool_output_limit=_limit(
+                data.get("context_tool_output_limit"), defaults.context_tool_output_limit
+            ),
             mcp_off_servers=_names(data.get("mcp_off_servers")),
             mcp_on=_names(data.get("mcp_on")),
             mcp_off=_names(data.get("mcp_off")),
             mcp_signed=_names(data.get("mcp_signed")),
             skills_off=_names(data.get("skills_off")),
         )
+
+
+def _limit(value: Any, default: int) -> int:
+    """A whole number of characters, 0 included; anything else is the default."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return default
+    return value
 
 
 def _names(value: Any) -> tuple[str, ...]:

@@ -47,7 +47,9 @@ one way too.
   and the marks: environment first (`ANTHROPIC_API_KEY` /
   `OPENAI_API_KEY` / `OLLAMA_MODEL` + `OLLAMA_HOST`; `VOID_AGENT` names
   the agent), `~/.void/config.json` fills in (written by the key prompt,
-  `/key`, `/model`, `/agent`, `/mcp` and `/skill`, mode 0600) · `llm.py`
+  `/key`, `/model`, `/agent`, `/mcp` and `/skill`, mode 0600);
+  `context_tool_output_limit` there caps one tool result in the
+  model's context, 8,000 chars unless the file says otherwise, 0 for none · `llm.py`
   `resolve_llm`, a `Config` as an `Llm` — the one file in the CLI that
   imports a provider's SDK, lazily · `agents/` which agent runs: `registry.py` a
   `Registry` of `universal` (`universal.py`: the default — the model, a plan,

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,7 @@ from cli.screens import AgentPicker, KeyPrompt, McpPicker, ModelPicker, SessionP
 from cli.session import SessionStore
 from cli.widgets import Panel, UserBubble, Welcome
 from cli.widgets.welcome import LOGO_WIDTH
+from tests.test_agent import CapturingLlm
 from tests.test_cli_ollama import down, server
 from textual.containers import VerticalScroll
 from textual.widgets import Input, OptionList, Static
@@ -112,6 +114,35 @@ def make_app(
         config_file=tmp_path / "config.json",
         ollama=ollama or ollama_down(),  # never the machine's own
     )
+
+
+async def test_the_configured_cap_on_a_tool_result_reaches_the_model(tmp_path: Path) -> None:
+    """A session holding a huge tool result — a web search's — hands the
+    model the line cut at `context_tool_output_limit`, never the whole."""
+    llm = CapturingLlm([say("noted")])
+
+    def build(_config: Config) -> Agent:
+        return Agent(llm, "void", "test").prompt(lambda history: list(history))
+
+    app = make_app(tmp_path, build, config=replace(CONFIGURED, context_tool_output_limit=40))
+    huge = "x" * 10_000
+    result: dict[str, Any] = {
+        "type": "dynamic-tool",
+        "toolCallId": "c",
+        "toolName": "search",
+        "state": "output-available",
+        "input": {},
+        "output": huge,
+    }
+    async with app.run_test() as pilot:
+        app.shell.session.append("user", [{"type": "text", "text": "search"}])
+        app.shell.session.append("assistant", [result])
+        await pilot.press(*"hi", "enter")
+        await finished(app)
+        await pilot.pause()
+    shown = repr(llm.transcripts[0])
+    assert f"[tool search({{}}) → {json.dumps(huge)[:40]}…]" in shown
+    assert huge not in shown
 
 
 async def test_a_typed_message_streams_the_models_reply_and_persists_the_turn(

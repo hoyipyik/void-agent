@@ -11,12 +11,12 @@ from typing import Any
 
 import httpx
 import pytest
-from cli.agents import Registry
 from cli.app import BuildAgent, VoidApp
 from cli.clipboard import Clipboard
 from cli.config import Config
 from cli.labels import model_label
 from cli.providers.ollama import Ollama
+from cli.registry import BUILTIN, Registry, folder
 from cli.screens import AgentPicker, KeyPrompt, McpPicker, ModelPicker, SessionPicker, SkillPicker
 from cli.session import SessionStore
 from cli.widgets import Panel, UserBubble, Welcome
@@ -318,9 +318,14 @@ async def test_an_openai_id_switches_the_provider_and_asks_for_its_key(tmp_path:
         assert app.config.anthropic_api_key == "sk-test"
 
 
-async def test_slash_agent_lists_the_mounted_agents_and_refuses_any_other(tmp_path: Path) -> None:
-    registry = Registry()
-    registry.mount("cli.agents.universal:chat")  # what `--agent module:function` mounts at start
+async def test_slash_agent_lists_the_scanned_agents_and_refuses_any_other(tmp_path: Path) -> None:
+    home = tmp_path / "agents"
+    home.mkdir()
+    (home / "mine.py").write_text(
+        '"""my own"""\nfrom void_agent import Agent\n\n'
+        'def build_agent(llm):\n    return Agent(llm, "mine", "my own")\n'
+    )
+    registry = Registry(sources=(BUILTIN, folder(home, label="~/agents")))
     app = VoidApp(
         registry.build_agent,
         store=SessionStore(tmp_path / "sessions"),
@@ -333,14 +338,14 @@ async def test_slash_agent_lists_the_mounted_agents_and_refuses_any_other(tmp_pa
         await pilot.press(*"/agent", "enter")
         await pilot.pause()
         assert isinstance(app.screen, AgentPicker)
-        await pilot.press("4")  # universal, weather, dummy-weather, then the mounted one
+        await pilot.press("4")  # universal, dummy_weather, weather, then the folder's
         await pilot.pause()
         assert not isinstance(app.screen, AgentPicker)
-        assert app.config.agent == "cli.agents.universal:chat"
-        await pilot.press(*"/agent no.such:thing", "enter")  # not mounted: refused at once
+        assert app.config.agent == "mine"
+        await pilot.press(*"/agent no_such", "enter")  # not there: refused at once
         await pilot.pause()
         assert app.query(".error")
-        assert app.config.agent == "cli.agents.universal:chat"
+        assert app.config.agent == "mine"
         await pilot.press(*"/agent universal", "enter")
         await pilot.pause()
         assert app.config.agent == "universal"
@@ -1130,7 +1135,11 @@ async def test_a_selection_in_the_log_is_copied_to_the_os_clipboard(tmp_path: Pa
     """A drag selects in the log; ctrl+c copies. Textual's own copy is an
     OSC 52 escape, which macOS Terminal ignores and iTerm2 refuses by
     default, so the app writes the OS clipboard too. The log takes no
-    focus: after the drag the composer still has the keys."""
+    focus: after the drag the composer still has the keys.
+
+    The toolbox stays off: its "mcp: … tools" note lands whenever the
+    subprocess answers, and one that landed mid-drag moved the log under
+    the mouse — the whole line was selected instead of twelve columns."""
     written: list[tuple[str, str]] = []
 
     def record(command: list[str], data: bytes) -> bool:
@@ -1140,7 +1149,7 @@ async def test_a_selection_in_the_log_is_copied_to_the_os_clipboard(tmp_path: Pa
     app = VoidApp(
         lambda _config: scripted("hello from void, worth copying"),
         store=SessionStore(tmp_path / "sessions"),
-        config=CONFIGURED,
+        config=CONFIGURED.with_server_state("toolbox", "off"),
         config_file=tmp_path / "config.json",
         clipboard=Clipboard(writer=record, platform="darwin"),
         ollama=ollama_down(),
@@ -1307,3 +1316,66 @@ async def test_the_board_says_which_directory_the_built_in_server_may_touch(
         assert "work" in row  # the directory it is rooted in
         await pilot.press("escape")
         await pilot.pause()
+
+
+async def test_slash_agent_shows_each_rows_source_and_why_one_cannot_load(tmp_path: Path) -> None:
+    home = tmp_path / "agents"
+    home.mkdir()
+    (home / "broken.py").write_text('"""will not import"""\nimport no_such_module\n')
+    registry = Registry(sources=(BUILTIN, folder(home, label="~/agents")))
+    app = VoidApp(
+        registry.build_agent,
+        store=SessionStore(tmp_path / "sessions"),
+        config=CONFIGURED,
+        config_file=tmp_path / "config.json",
+        agents=registry,
+        ollama=ollama_down(),
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        # What the scan could not load is said once the log is up.
+        said = str(app.query(".error").last().render())
+        assert "broken" in said and "~/agents" in said and "no_such_module" in said
+        await pilot.press(*"/agent", "enter")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, AgentPicker)
+        rows = picker.query_one(OptionList)
+        texts = [str(rows.get_option_at_index(i).prompt) for i in range(rows.option_count)]
+        assert any("universal" in text and "built-in" in text for text in texts)
+        broken = next(text for text in texts if "broken" in text)
+        assert "~/agents" in broken and "cannot load" in broken and "no_such_module" in broken
+        await pilot.press("4")  # the broken one may still be chosen: the turn says why
+        await pilot.pause()
+        assert app.config.agent == "broken"
+        await pilot.press(*"hi", "enter")
+        await finished(app)
+        await pilot.pause()
+        assert "cannot load" in app.shell.replies()[-1].source
+
+
+async def test_closing_the_app_cancels_a_mount_still_in_flight(tmp_path: Path) -> None:
+    """The servers start on a task of their own. An app closed before they
+    are up cancels that task rather than letting it note in a log that is
+    gone — the exception nobody awaited would be reported at exit."""
+    import asyncio
+
+    from cli.mcp import Bench
+    from tests.mcp_fakes import FakeMcp, descriptor
+
+    from void_agent.mcp import McpServer
+
+    class Slow(FakeMcp):
+        async def __aenter__(self) -> FakeMcp:
+            await asyncio.sleep(0.5)  # a subprocess takes a moment; the test does not
+            return await super().__aenter__()
+
+    bench = Bench(opener=lambda spec: McpServer(client=Slow([descriptor("read_file")])))
+    app = make_app(tmp_path, ollama=ollama_down())
+    app.bench = app.agents.bench = bench
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        mounting = app._mounting  # pyright: ignore[reportPrivateUsage]
+        assert mounting is not None and not mounting.done()
+    assert mounting.cancelled()
+    assert bench.catalog == ()  # closed, and the keeper unwound with it

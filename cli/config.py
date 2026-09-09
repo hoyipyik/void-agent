@@ -59,7 +59,7 @@ class Config:
     # installed, so there is no default — choosing one is what configures it.
     ollama_host: str = DEFAULT_HOST
     ollama_model: str = ""
-    # The agent the CLI runs, by its name in the registry (`cli/agents/`).
+    # The agent the CLI runs, by its name in the registry (`cli/registry.py`).
     agent: str = DEFAULT_AGENT
     # See DEFAULT_CONTEXT_TOOL_OUTPUT_LIMIT; the file's to change.
     context_tool_output_limit: int = DEFAULT_CONTEXT_TOOL_OUTPUT_LIMIT

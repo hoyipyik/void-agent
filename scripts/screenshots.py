@@ -84,9 +84,9 @@ def write(name: str, svg: str) -> None:
 async def scenes(home: Path, project: Path) -> None:
     os.environ["VOID_HOME"] = str(home)
     # cli.main reads VOID_HOME at import, so it is imported after the override.
-    from cli.agents import REGISTRY
     from cli.app import VoidApp
     from cli.config import load_config
+    from cli.registry import default_registry
     from cli.session import SessionStore
     from cli.widgets import AskCard
 
@@ -94,16 +94,18 @@ async def scenes(home: Path, project: Path) -> None:
     if not config.configured():
         sys.exit("no provider in the environment: set ANTHROPIC_API_KEY or OPENAI_API_KEY")
 
+    registry = default_registry()
+
     def app_for(agent: str) -> VoidApp:
         chosen = config.with_agent(agent)
         for name in READS_ON:
             chosen = chosen.with_tool_state(f"toolbox__{name}", "on")
         return VoidApp(
-            REGISTRY.build_agent,
+            registry.build_agent,
             store=SessionStore(home / "sessions"),
             config=chosen,
             config_file=home / "config.json",
-            agents=REGISTRY,
+            agents=registry,
             root=project,
         )
 

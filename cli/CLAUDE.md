@@ -154,9 +154,10 @@ one way too.
   `context_text(parts)` (the user side, `context_content` when attachments
   exist), never raw streamed text.
 - The account is read off the parts, never kept beside them. A turn's
-  `data-usage` parts are summed into one muted `∑` trailer after
-  everything the turn produced (`∑ 3 steps · 5.4k in · 200 out`), live
-  and replayed alike — never a line per round-trip in the flow. The
+  `data-usage` parts are summed into one muted trailer after everything
+  the turn produced (`⏺ 3 steps · 5.4k in · 200 out`, the dot in the
+  gutter like every line's, in `$accent`), live and replayed alike —
+  never a line per round-trip in the flow. The
   status line's right side says the context the last round-trip read
   and what the session has consumed, in and out together, live as each
   reports (`… · 12k ctx · 51k consumed`; the running sum is the

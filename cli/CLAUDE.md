@@ -155,13 +155,20 @@ one way too.
   an input in the composer. While a card is open it holds the keys —
   nothing else takes the focus.
 - Models are chosen, not typed: `/model` lists `providers.catalog.CATALOG`, then what
-  Ollama has installed (asked when the picker opens — a server that does
-  not answer is said so in its header, the cloud rows stay); a bare
-  `/model <id>` is the escape hatch for one the catalogue lacks. The
-  catalogue is a menu, not a fence — never a validation. Ollama is the
-  one provider without a key: choosing one of its models is what
-  configures it, and a bare Ollama name is checked against the installed
-  list, since nothing else would catch a typo before the first turn.
+  Ollama has installed that can call tools (asked when the picker
+  opens); a bare `/model <id>` is the escape hatch for one the catalogue
+  lacks. The catalogue is a menu, not a fence — never a validation.
+- Ollama is extra, never core. The CLI looks for it itself — at the
+  first start's prompt and whenever a picker opens, never in `make
+  setup`, which is the Python environment and nothing else — and where
+  it does not answer or has no model an agent can run on
+  (`ollama.usable`), nothing offers it: no header in `/model`, no row in
+  the key prompt; `/key ollama` says why. It is the one provider without
+  a key: choosing one of its models is what configures it, and a bare
+  Ollama name is checked against the installed list, since nothing else
+  would catch a typo before the first turn. Its alias is a rule, not a
+  guess (`ollama.alias`): the namespace and a quantisation-only tag
+  dropped, the size kept (`27b`), an uncensored build marked `-U`.
 - MCP and skills are mounted per process, chosen per session — the same
   shape as `--agent` and `/agent`. Every agent gets the same ones;
   nothing is configured per agent. `Registry.build_agent` adds them to

@@ -18,7 +18,7 @@ from cli.providers.catalog import (
     models_for,
     provider_of,
 )
-from cli.providers.ollama import DEFAULT_HOST, Ollama, OllamaDown, alias, host_url
+from cli.providers.ollama import DEFAULT_HOST, Ollama, OllamaDown, alias, host_url, usable
 
 __all__ = [
     "CATALOG",
@@ -38,4 +38,5 @@ __all__ = [
     "host_url",
     "models_for",
     "provider_of",
+    "usable",
 ]

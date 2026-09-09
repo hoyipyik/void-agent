@@ -4,7 +4,9 @@ put there. The model itself is spoken to by the OpenAI provider through
 Ollama's OpenAI-compatible endpoint (`<host>/v1`, `cli/llm.py`), so
 nothing here reaches core: this module only asks the server what it has
 (`/api/tags`), and what each can do (`/api/show` — a model without
-`tools` cannot drive an agent, and the picker says so)."""
+`tools` cannot drive an agent). Ollama is extra, never core: the CLI
+looks for it itself, and offers it only where `usable` finds a model an
+agent can run on."""
 
 from __future__ import annotations
 
@@ -98,10 +100,18 @@ def _row(listed: dict[str, Any], shown: dict[str, Any]) -> ModelInfo:
         _size(int(listed.get("size") or 0)) if listed.get("size") else "",
     ]
     capabilities = shown.get("capabilities")
-    if isinstance(capabilities, list) and "tools" not in cast("list[Any]", capabilities):
+    # A server that will not say what a model can do is given the benefit.
+    tools = not isinstance(capabilities, list) or "tools" in cast("list[Any]", capabilities)
+    if not tools:
         bits.append("no tools")
     blurb = " · ".join(bit for bit in bits if bit and bit != "unknown")
-    return ModelInfo("ollama", name, alias(name), blurb)
+    return ModelInfo("ollama", name, alias(name), blurb, tools=tools)
+
+
+def usable(installed: Sequence[ModelInfo]) -> tuple[ModelInfo, ...]:
+    """The installed models an agent can run on — those that call tools.
+    Empty, Ollama is not offered anywhere."""
+    return tuple(model for model in installed if model.tools)
 
 
 class Ollama:

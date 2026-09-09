@@ -63,9 +63,15 @@ async def test_a_turn_folds_its_stream_into_parts() -> None:
 
     turn = Turn(agent_with([say("hello")]), [])
     parts = await turn.drain(on_event, unasked)
-    assert parts == [{"type": "text", "text": "hello"}]
+    assert parts[0] == {"type": "text", "text": "hello"}
     assert seen and seen[-1][1] == 1
     assert not turn.running
+
+
+async def test_every_turn_ends_with_how_long_it_took() -> None:
+    parts = await Turn(agent_with([say("hello")]), []).drain(nothing, unasked)
+    assert [part["type"] for part in parts] == ["text", "data-elapsed"]
+    assert parts[-1]["data"]["seconds"] >= 0
 
 
 async def test_a_question_is_handed_out_and_its_answer_returns_in_place() -> None:
@@ -86,7 +92,7 @@ async def test_a_question_is_handed_out_and_its_answer_returns_in_place() -> Non
     assert [question.ask.question for question in asked] == ["Which colour?"]
     types = [part["type"] for part in parts]
     assert "data-ask" in types and "data-answer" in types
-    assert parts[-1] == {"type": "text", "text": "blue it is"}
+    assert parts[-2] == {"type": "text", "text": "blue it is"}
 
 
 async def test_a_stop_ends_the_turn_marked_cancelled() -> None:
@@ -102,7 +108,9 @@ async def test_a_stop_ends_the_turn_marked_cancelled() -> None:
     assert turn.running
     turn.cancel()
     parts = await asyncio.wait_for(draining, 5)
+    # The time comes before the marker that says how the turn ended.
     assert parts[-1] == {"type": "data-cancelled", "data": {}}
+    assert parts[-2]["type"] == "data-elapsed"
     assert parts[0]["type"] == "dynamic-tool"
 
 

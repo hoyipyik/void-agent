@@ -78,7 +78,7 @@ from cli.widgets.prompt import REWIND_HINT, PromptFrame, StatusBar, activity
 from cli.widgets.reply import Reply, UserBubble
 from cli.widgets.turn import TurnView
 from cli.widgets.welcome import Welcome
-from void_agent import AgentEvent, Question, UsageReported, parts_text
+from void_agent import AgentEvent, Question, StepStart, UsageReported, parts_text
 
 if TYPE_CHECKING:
     from cli.app import VoidApp
@@ -518,6 +518,8 @@ class Shell(Screen[None]):
             said = activity(event)
             if said is not None:
                 self._status.busy(said)
+            if isinstance(event, StepStart):
+                self._status.restart()
             if isinstance(event, UsageReported):
                 spent = spent + event.usage
                 self._show_account(event.usage.input, spent.input + spent.output)

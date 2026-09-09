@@ -163,6 +163,7 @@ RESERVED_DATA_KINDS = frozenset(
         "error",
         "reflection",
         "usage",
+        "elapsed",
     }
 )
 

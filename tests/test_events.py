@@ -161,7 +161,17 @@ def test_a_channel_requires_positive_capacity() -> None:
 
 
 def test_reserved_data_kinds_cannot_be_forged_as_progress() -> None:
-    for kind in ("step", "plan", "ask", "answer", "trigger", "cancelled", "error", "usage"):
+    for kind in (
+        "step",
+        "plan",
+        "ask",
+        "answer",
+        "trigger",
+        "cancelled",
+        "error",
+        "usage",
+        "elapsed",
+    ):
         with pytest.raises(ValueError, match="reserved"):
             Progress(kind=kind, data={})
 

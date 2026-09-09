@@ -120,7 +120,9 @@ that mounts an agent is an application above it.
   it becomes `ImageContent`/`PdfContent`. Core never fetches a URL or opens
   a path.
 - `data-step` is stream-only. Reserved data kinds are refused at `Progress`
-  construction — a tool can never forge provenance-carrying parts.
+  construction — a tool can never forge provenance-carrying parts, nor
+  the markers an application appends itself (`data-cancelled`,
+  `data-error`, `data-elapsed`).
 - The account is the provider's word, carried, never estimated: a
   `ModelStep` carries the `Usage` its provider reported (or None), the
   loop reports it as `UsageReported` the moment the step returns — before

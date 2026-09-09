@@ -42,7 +42,7 @@ one way too.
   and its menu, the rewind, the attachments, the turn and its questions,
   and the session's own commands (`/session`, `/new`, `/clear`,
   `/attach`, `/paste`, `/detach`, `/status`, `/help`, `/quit`); the rest
-  go up to the app; `app.shell` is how the tests reach it · `labels.py` `tilde`, `model_label`, `bar_label`, `tokens`, `usage_label` · `commands.py` slash commands as `Spec`s: `matching` for
+  go up to the app; `app.shell` is how the tests reach it · `labels.py` `tilde`, `model_label`, `bar_label`, `tokens`, `usage_label`, `duration` · `commands.py` slash commands as `Spec`s: `matching` for
   the menu, `complete`, `parse` · `config.py` the provider, the agent
   and the marks: environment first (`ANTHROPIC_API_KEY` /
   `OPENAI_API_KEY` / `OLLAMA_MODEL` + `OLLAMA_HOST`; `VOID_AGENT` names
@@ -66,7 +66,8 @@ one way too.
   counted, the context the model read last) · `runner.py` `Turn`: one run
   as a task and the loop that drains its stream and its questions
   concurrently, folding events into parts and writing the transport
-  markers (`data-cancelled`, `data-error`), tested against `ScriptedLlm`
+  markers (`data-elapsed`, how long the turn took, then `data-cancelled`
+  or `data-error`), tested against `ScriptedLlm`
   directly · `asks.py` `Desk`: the questions a turn is waiting on and the
   one the composer answers in words — the application's edge, where an
   answer's shape is settled · `attachments.py` a file as a `file` part
@@ -115,9 +116,10 @@ one way too.
   log and left there, its agent and model lines kept current by
   `Shell.refresh_label` · `menu.py` the slash-command menu (`/` opens it,
   arrows move, Tab completes, Enter runs) · `prompt.py` the prompt frame
-  (sign + composer), the status line (a spinner and the turn's activity
-  — `activity(event)` — the agent, the model, the context the last
-  round-trip read and what the session has consumed on the right) ·
+  (sign + composer), the status line (a spinner, the turn's activity —
+  `activity(event)` — and how long this step has run, restarted at each
+  `data-step`; the agent, the model, the context the last round-trip
+  read and what the session has consumed on the right) ·
   `attachbar.py` the
   attachments waiting for the next message, the list theirs ·
   `panels.py` `Panel`, the `/help` and `/status` panels · `theme.py` the
@@ -155,9 +157,11 @@ one way too.
   exist), never raw streamed text.
 - The account is read off the parts, never kept beside them. A turn's
   `data-usage` parts are summed into one muted trailer after everything
-  the turn produced (`⏺ 3 steps · 5.4k in · 200 out`, the dot in the
-  gutter like every line's, in `$accent`), live and replayed alike —
-  never a line per round-trip in the flow. The
+  the turn produced (`⏺ 3 steps · 12s · 5.4k in · 200 out`, the dot in
+  the gutter like every line's, in `$accent`), live and replayed alike —
+  never a line per round-trip in the flow. The time is the runner's
+  `data-elapsed` marker, written like `data-cancelled`, so a replay says
+  it too; the status line's stopwatch is the current step's, live only. The
   status line's right side says the context the last round-trip read
   and what the session has consumed, in and out together, live as each
   reports (`… · 12k ctx · 51k consumed`; the running sum is the

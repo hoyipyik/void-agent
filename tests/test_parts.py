@@ -413,3 +413,9 @@ def test_the_account_reads_back_and_sums() -> None:
 def test_a_malformed_usage_part_reads_as_nothing() -> None:
     assert usage_of({"type": "data-usage", "data": "bogus"}) is None
     assert usage_of({"type": "data-usage", "data": {"input": "many"}}) is None
+
+
+def test_the_model_never_reads_the_clock() -> None:
+    parts: list[dict[str, Any]] = [{"type": "data-elapsed", "data": {"seconds": 12.4}}]
+    assert context_text(parts) == ""
+    assert context_content(parts) == ()

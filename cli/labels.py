@@ -62,3 +62,15 @@ def usage_label(usage: Usage) -> str:
     if usage.cache_read:
         line += f" · {tokens(usage.cache_read)} cached"
     return line
+
+
+def duration(seconds: float) -> str:
+    """A span as people say one: `4s`, `1m 12s`, `1h 2m`."""
+    whole = round(seconds)
+    if whole < 60:
+        return f"{whole}s"
+    minutes, rest = divmod(whole, 60)
+    if minutes < 60:
+        return f"{minutes}m {rest}s" if rest else f"{minutes}m"
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}h {minutes}m" if minutes else f"{hours}h"

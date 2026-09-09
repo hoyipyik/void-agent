@@ -139,9 +139,12 @@ class Shell(Screen[None]):
         self.post_message(self.Ready())
 
     def refresh_label(self) -> None:
-        """The status line's right side — the agent and the model — as
-        the config stands now."""
-        self._status.show_model(bar_label(self.void.config, self.void.agent_label()))
+        """The agent and the model as the config stands now: the status
+        line's right side, and the welcome box at the top of the log."""
+        config, agent = self.void.config, self.void.agent_label()
+        self._status.show_model(bar_label(config, agent))
+        for welcome in self.query(Welcome):
+            welcome.show(config, agent)
 
     def flash(self, text: str) -> None:
         """A word in the status line for a moment — "copied" — then what

@@ -111,7 +111,8 @@ one way too.
   `ask.py` the question card answered with the keys · `format.py` a
   payload as one line or in full · `welcome.py` the welcome box (the
   VoidAgent logo), the transcript's header, drawn once at the top of the
-  log and left there · `menu.py` the slash-command menu (`/` opens it,
+  log and left there, its agent and model lines kept current by
+  `Shell.refresh_label` · `menu.py` the slash-command menu (`/` opens it,
   arrows move, Tab completes, Enter runs) · `prompt.py` the prompt frame
   (sign + composer), the status line (a spinner and the turn's activity
   — `activity(event)` — the model on the right) · `attachbar.py` the

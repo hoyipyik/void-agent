@@ -25,9 +25,13 @@ or an answer — goes straight to the person from wherever it arose.
   UI messages. Agents and tools at any depth ask the person for approval or
   answers through the same channel. The answer returns to the frame that
   asked, with no parent relay.
-- **Approval is code.** A tool's `approval` function takes validated input
-  and returns a reason string or `None` before the handler runs. The gate
-  follows that result, not the model's word.
+- **Approval is mechanical.** `approval` reads this call's validated input
+  and decides in code, before the handler. The person says yes or no; the
+  model never decides.
+- **A session is a conversation.** The messages are the state — one
+  projection for the UI, one for the model. No task, no journal, no resume.
+- **About 2,000 lines, pydantic only.** One concept per file; provider
+  SDKs behind optional extras.
 
 ## The terminal UI
 

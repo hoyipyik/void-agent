@@ -1,7 +1,7 @@
 [project]
 name = "void-agent"
 version = "0.1.0"
-description = "A tiny agent core where everything is a tool — MCP servers, skills, subagent, workflow, even the human — plus a terminal UI to run it."
+description = "Write an agent the way you write code."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"

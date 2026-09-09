@@ -233,11 +233,12 @@ make setup                  # uv sync, .env from .env.example
 make cli                    # reads .env for the key; the same as `uv run python -m cli`
 ```
 
-**With your own agent.** Any `build_agent(llm) -> Agent` in a module
-beside you, mounted at start; `VOID_AGENT` names it the same way:
+**With your own agents.** A folder of them, one module each, any
+`build_agent(llm) -> Agent`; `~/.void/agents` is read on its own, a
+workspace when named, and `--agent` picks the one to start on:
 
 ```bash
-./void-agent-cli-macos-arm64 --agent my_agents:build_agent
+./void-agent-cli-macos-arm64 --workspace ./agents --agent researcher
 ```
 
 **As your own binary.** The same packer the release runs:
@@ -262,11 +263,37 @@ Three agents come built in; `/agent` switches:
   or off. The toolbox starts `signed`: each call shows you a card first.
   Edit `mcp.json` while the shell runs: the next `/mcp` picks it up.
 - **weather** — below.
-- **dummy-weather** — the weather agent replayed on a scripted model and
+- **dummy_weather** — the weather agent replayed on a scripted model and
   canned data: no key, no network, the whole protocol on screen.
 
-Your own agent mounts with `--agent module:function`, any
-`build_agent(llm) -> Agent`.
+Your own agents are files. A module under `~/.void/agents`, or in a folder
+named with `--workspace`, with a `build_agent(llm) -> Agent` is an agent:
+the file's stem is its name in `/agent`, the docstring its blurb. A module
+without one is a helper, imported by its siblings as `from . import x`.
+A builder that takes a second argument is handed the pool — every agent
+loaded, from every folder — so agents call each other by name:
+
+```python
+# ~/.void/agents/researcher.py
+"""finds sources and hands them to the writer"""
+
+from void_agent import Agent, Llm
+
+
+def build_agent(llm: Llm, agents) -> Agent:
+    return (
+        Agent(llm, "researcher", "finds and summarises sources")
+        .with_system("Find what the question needs, then hand it to the writer.")
+        .tool(agents("writer"))  # writer.py beside it, built on the same model
+    )
+```
+
+`agents("writer")` is the writer beside the caller if there is one, else
+the pool's by name; a name taken by an earlier folder shows as `writer-1`,
+both rows with their source. `agents.mounted` is every tool the process
+mounted, for a sub-agent that should have them. A cycle, a missing name or
+a file that will not import is on its row in red before you pick it; a
+new file shows on the next `/agent`, an edit needs a restart.
 
 `/` opens the command menu: `/model`, `/key`, `/agent`, `/mcp`, `/skill`,
 `/session`, `/new`, `/clear`, `/attach <path>`, `/paste`, `/status`,
@@ -296,8 +323,8 @@ schedules them, so the questions can be as awkward as you like:
 
 The plan updates as it goes; when a result surprises it, it reflects
 before continuing. `cli/agents/weather.py` is the whole thing: the tools, the
-system prompt, `build_agent` — and `dummy`, the same agent on a scripted
-model.
+system prompt, `build_agent`; `dummy_weather.py` beside it is the same agent
+on a scripted model.
 
 ## License
 

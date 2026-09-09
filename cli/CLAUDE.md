@@ -13,11 +13,11 @@ the release matrix builds on Windows too and a Makefile's shell does not
 go there — the MCP SDK's client, server and shared packages whole (it
 resolves transports by name), textual whole, `rg` beside the bundle (the
 official release, pinned by digest, when `--fetch-ripgrep` asks), and each
-of the registry's modules as a hidden import (read from `CATALOG`).
-The binary puts the working directory on `sys.path` so `--agent
-module:function` finds a module beside the person, and
-`scripts/smoke_toolbox.py` speaks one MCP round trip to it, since a
-transport the bundler dropped fails at the first call, not at build time.
+module of the built-in shelf as a hidden import (`registry_modules` globs
+`cli/agents/`), since the registry finds them with `pkgutil.iter_modules`
+at run time, which the bundler cannot see. `scripts/smoke_toolbox.py`
+speaks one MCP round trip to the binary, since a transport the bundler
+dropped fails at the first call, not at build time.
 Tests in `tests/test_cli_*.py` drive the app through
 `App.run_test()` with `ScriptedLlm` / `ScriptedHuman` — never a mocked
 module of ours.
@@ -31,7 +31,10 @@ and `app.py` imports Textual. `providers ← config ← llm` is
 one way too.
 
 - `main.py` the entry point (`VOID_HOME` moves the state dir;
-  `--serve-toolbox` is the toolbox subprocess, handled before argparse) ·
+  `--serve-toolbox` is the toolbox subprocess, handled before argparse;
+  the registry is built here from its sources in order, `--workspace
+  DIR`, repeatable, adding a folder of agents after `~/.void/agents`;
+  `--agent NAME` names one that must be there) ·
   `app.py` `VoidApp`: what is the process's — the config and its file,
   the store, the registry, the bench and the shelf, Ollama, the OS
   clipboard — and the flows that write the config: `/model`, `/key`,
@@ -51,16 +54,26 @@ one way too.
   `context_tool_output_limit` there caps one tool result in the
   model's context, 8,000 chars unless the file says otherwise, 0 for none · `llm.py`
   `resolve_llm`, a `Config` as an `Llm` — the one file in the CLI that
-  imports a provider's SDK, lazily · `agents/` which agent runs: `registry.py` a
-  `Registry` of `universal` (`universal.py`: the default — the model, a plan,
-  reflection, `ask_user`, and whatever MCP is mounted), `weather` and
-  `dummy-weather` (`weather.py`, the example agent: Open-Meteo behind five thin tools — geocode,
-  current, hourly, daily, history — the model as the scheduler; `dummy`
-  is the same agent on a `ScriptedLlm` and a canned `httpx` transport, so
-  the whole protocol runs with no key and no network) plus what
-  `--agent` / `VOID_AGENT` mounted at start (`module:function`, imported at the door
-  — a failure exits); `/agent` chooses among the mounted only;
-  `Registry.build_agent(config)` is the per-turn factory · `session/`
+  imports a provider's SDK, lazily · `registry.py` which agent runs: a
+  `Registry` of what its sources hold — the built-in shelf `agents/`,
+  `~/.void/agents`, each `--workspace` folder, in that order, one level
+  deep. A module with a `build_agent(llm) -> Agent` is an agent, its stem
+  the name in `/agent`, its docstring's first line the blurb; a module
+  without one is a helper, never listed; a file that cannot import is a
+  row with the reason; a name taken earlier is `name-1`, `name-2` in
+  source order. A builder that takes a second argument is handed the
+  `Pool`: `agents("writer")` is the writer beside it, else the pool's by
+  id; `agents.mounted` the tools the process mounted. A cycle and a
+  missing name are errors at scan, every builder run once on a
+  `ScriptedLlm`. `Registry.build_agent(config)` is the per-turn factory;
+  `scan()` reads the sources again (`/agent` opens on it — a new file
+  appears, an edit needs a restart) · `agents/` the built-in shelf:
+  `universal.py` (the default — the model, a plan, reflection,
+  `ask_user`, and whatever MCP is mounted), `weather.py` (the example
+  agent: Open-Meteo behind five thin tools — geocode, current, hourly,
+  daily, history — the model as the scheduler) and `dummy_weather.py`
+  (the same agent on a `ScriptedLlm` and a canned `httpx` transport, so
+  the whole protocol runs with no key and no network) · `session/`
   what is the session's, with no Textual in it: `store.py` sessions on
   disk (`~/.void/sessions/<id>.json`, parts verbatim, the server store's
   shape), their model-facing projection, and their account
@@ -144,13 +157,24 @@ one way too.
   a remote mode over a server's SSE would be the same renderer behind a
   different transport.
 - The CLI is a client, not an agent. The agent is any `build_agent(llm)`
-  in the registry (`cli/agents/registry.py`); the default is `universal`.
-  Mounting is a process-level act (`--agent module:function`
-  at start, imported then); choosing is a session-level act (`/agent`,
-  among the mounted only — a name that is not there is refused, never
-  saved). The CLI hands every agent the session as history, whatever its
-  own script expects. Nothing agent-specific lives in the CLI: a new
-  tool, a new agent, a sub-agent all render through the protocol.
+  the registry scanned (`cli/registry.py`); the default is `universal`.
+  Mounting is a process-level act (the sources are read at start, and
+  again when `/agent` opens; an edit needs a restart); choosing is a
+  session-level act (`/agent`, among the scanned only — a name that is
+  not there is refused, never saved; one that cannot load may be chosen,
+  and the turn says why). The CLI hands every agent the session as
+  history, whatever its own script expects. Nothing agent-specific lives
+  in the CLI: a new tool, a new agent, a sub-agent all render through
+  the protocol.
+- Agents are scanned, never registered. The sources are folders read
+  one level deep in a fixed order — built-in, `~/.void/agents`, each
+  `--workspace` — and never the working directory: importing a module
+  runs it, and only a folder the person named is theirs. A name taken by
+  an earlier source is suffixed, never replaced: the picker shows both,
+  each with its source. Every loaded agent reaches every other by name
+  through the pool, its own source's first; a cycle is refused with its
+  path. The mounted tools reach a sub-agent only when its builder asks
+  (`agents.mounted`); the root gets them regardless.
 - Render from `parts`. `PartsAccumulator` folds the stream; the widgets are
   a function of the parts array, live and reloaded alike. One replay path.
 - The session is the state: the assistant side of `history` is

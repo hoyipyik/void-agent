@@ -39,8 +39,12 @@ cli/                     the terminal UI, in-process (repo-only, not
                          `~/.void/skills` mounted, marked in `/mcp` and
                          `/skill`; `weather` (cli/agents/weather.py: Open-Meteo
                          behind five thin tools, the model as the
-                         scheduler) and `dummy-weather` (the same on a
-                         scripted model and canned data);
+                         scheduler) and `dummy_weather` (the same on a
+                         scripted model and canned data); the agents
+                         scanned, never registered — the built-in shelf,
+                         `~/.void/agents`, each `--workspace` folder —
+                         listed in `/agent`, each reaching the others by
+                         name through the pool;
                          the protocol rendered from parts, cards
                          answered in place, attachments as `file` parts;
                          the model from Anthropic, OpenAI, or a local

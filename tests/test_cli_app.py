@@ -1135,7 +1135,11 @@ async def test_a_selection_in_the_log_is_copied_to_the_os_clipboard(tmp_path: Pa
     """A drag selects in the log; ctrl+c copies. Textual's own copy is an
     OSC 52 escape, which macOS Terminal ignores and iTerm2 refuses by
     default, so the app writes the OS clipboard too. The log takes no
-    focus: after the drag the composer still has the keys."""
+    focus: after the drag the composer still has the keys.
+
+    The toolbox stays off: its "mcp: … tools" note lands whenever the
+    subprocess answers, and one that landed mid-drag moved the log under
+    the mouse — the whole line was selected instead of twelve columns."""
     written: list[tuple[str, str]] = []
 
     def record(command: list[str], data: bytes) -> bool:
@@ -1145,7 +1149,7 @@ async def test_a_selection_in_the_log_is_copied_to_the_os_clipboard(tmp_path: Pa
     app = VoidApp(
         lambda _config: scripted("hello from void, worth copying"),
         store=SessionStore(tmp_path / "sessions"),
-        config=CONFIGURED,
+        config=CONFIGURED.with_server_state("toolbox", "off"),
         config_file=tmp_path / "config.json",
         clipboard=Clipboard(writer=record, platform="darwin"),
         ollama=ollama_down(),

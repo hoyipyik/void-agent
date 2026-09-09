@@ -16,7 +16,7 @@ is a tool, every workflow is a function, and every question — an approval
 or an answer — goes straight to the person from wherever it arose.
 
 - **Everything is a tool, mounted as the agent needs.** Workflows,
-  sub-agents, MCP tools, Markdown skill folders, and the person — the same
+  sub-agents, MCP tools, Markdown skills, and the person — the same
   `.tool(...)` call mounts any of them.
 - **Workflows are code.** A plain async function takes typed input and an
   `EventSender` and invokes its own tools. No graph DSL — code already

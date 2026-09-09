@@ -18,11 +18,14 @@ from void_agent.core.parts.attachment import attachment_label, decode_attachment
 from void_agent.core.parts.context import part_line
 
 
-def context_content(parts: list[dict[str, Any]]) -> tuple[ContentPart, ...]:
+def context_content(
+    parts: list[dict[str, Any]], *, tool_output_limit: int | None = None
+) -> tuple[ContentPart, ...]:
     """A persisted parts array as the content the MODEL receives: the lines
     of `context_text`, grouped into one text part between the attachments
     they surround, and each attachment as its own content part. Empty when
-    nothing speaks — the caller leaves such a message out."""
+    nothing speaks — the caller leaves such a message out. `tool_output_limit`
+    is `context_text`'s: a tool's output is whole unless the application caps it."""
     content: list[ContentPart] = []
     lines: list[str] = []
 
@@ -41,7 +44,7 @@ def context_content(parts: list[dict[str, Any]]) -> tuple[ContentPart, ...]:
             else:
                 flush()
                 content.append(decoded)
-        elif (line := part_line(part)) is not None:
+        elif (line := part_line(part, tool_output_limit=tool_output_limit)) is not None:
             lines.append(line)
     flush()
     return tuple(content)

@@ -3,9 +3,8 @@ for the model's next-turn context."""
 
 from __future__ import annotations
 
+import json
 from typing import Any, cast
-
-import pytest
 
 from void_agent import (
     AskAnswered,
@@ -128,19 +127,28 @@ def test_context_text_renders_tool_errors() -> None:
     assert "→ ERROR: out of stock]" in context_text(parts)
 
 
-@pytest.mark.internals
-def test_context_text_clips_long_tool_output() -> None:
-    from void_agent.core.parts import TOOL_OUTPUT_CONTEXT_LIMIT
-
-    huge = "x" * (TOOL_OUTPUT_CONTEXT_LIMIT * 2)
-    parts = folded(
+def _long_tool_output_parts(huge: str) -> list[dict[str, Any]]:
+    return folded(
         ToolInputStart(tool_call_id="c", tool_name="f"),
         ToolInputAvailable(tool_call_id="c", tool_name="f", input={}),
         ToolOutputAvailable(tool_call_id="c", output=huge),
     )
-    rendered = context_text(parts)
-    assert "…" in rendered
-    assert huge not in rendered
+
+
+def test_context_text_keeps_a_long_tool_output_whole_by_default() -> None:
+    huge = "x" * 100_000
+    rendered = context_text(_long_tool_output_parts(huge))
+    assert rendered == f"[tool f({{}}) → {json.dumps(huge)}]"
+    assert "…" not in rendered
+
+
+def test_a_tool_output_limit_clips_the_line_in_both_model_projections() -> None:
+    huge = "x" * 100_000
+    parts = _long_tool_output_parts(huge)
+    rendered = context_text(parts, tool_output_limit=40)
+    assert rendered == f"[tool f({{}}) → {json.dumps(huge)[:40]}…]"
+    assert context_content(parts, tool_output_limit=40) == (TextContent(rendered),)
+    assert "…" not in context_text(parts, tool_output_limit=None)
 
 
 def test_context_text_renders_the_plan_compactly() -> None:

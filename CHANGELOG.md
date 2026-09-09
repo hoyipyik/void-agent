@@ -10,6 +10,9 @@ Everything — the framework has not been released yet.
   single mounting verb (functions, workflows, sub-agents, `HUMAN`), plan and
   reflection as built-in tools, the
   Vercel-AI-SDK-compatible event stream, and `context_text` semantic resume.
+- The model-facing projections keep a tool's output whole: `context_text`
+  and `context_content` take `tool_output_limit=` for an application that
+  wants a cap and cut the line there; core sets none.
 - The human as a channel: `agent.run(..., human=…)` makes an `Attendant`
   ambient for the whole tree; `ask_user` from any depth and a tool's
   `approval` gate put their question to it through the stream (`AskIssued`)

@@ -33,99 +33,7 @@ or an answer — goes straight to the person from wherever it arose.
 - **About 2,000 lines, pydantic only.** One concept per file; provider
   SDKs behind optional extras.
 
-## The terminal UI
-
-`void` is the same runtime in a terminal: one binary per platform, nothing
-to install — the UI, the agents, the MCP SDK and ripgrep inside.
-
 ![the weather agent answering a two-city question](screenshots/weather.svg)
-
-Four ways in.
-
-**The binary.** Download `void-agent-cli-<platform>` from
-[Releases](https://github.com/hoyipyik/void-agent/releases) — Linux x86_64
-and arm64, macOS Intel and Apple Silicon, Windows — and run it:
-
-```bash
-chmod +x void-agent-cli-macos-arm64 && ./void-agent-cli-macos-arm64
-```
-
-macOS asks once the first time: right-click → Open, or
-`xattr -d com.apple.quarantine void-agent-cli-macos-arm64`.
-
-**From a checkout.** uv installs the CLI's dependencies with the rest:
-
-```bash
-git clone https://github.com/hoyipyik/void-agent && cd void-agent
-make setup                  # uv sync, .env from .env.example
-make cli                    # reads .env for the key; the same as `uv run python -m cli`
-```
-
-**With your own agent.** Any `build_agent(llm) -> Agent` in a module
-beside you, mounted at start; `VOID_AGENT` names it the same way:
-
-```bash
-./void-agent-cli-macos-arm64 --agent my_agents:build_agent
-```
-
-**As your own binary.** The same packer the release runs:
-
-```bash
-make cli-build              # dist/void, this checkout's ripgrep inside; FETCH=1 fetches the official one
-```
-
-On first start it asks for a provider and a key — or reads
-`ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `OLLAMA_MODEL` from the
-environment. `/model` lists the Anthropic and OpenAI models, then whatever
-a local Ollama has installed. Sessions and the config live under `~/.void`;
-`VOID_HOME` moves them.
-
-Three agents come built in; `/agent` switches:
-
-- **universal** — the model, a live plan, reflection, `ask_user`, and every
-  tool the process mounted: void's own **toolbox** over the directory you
-  started in (read, list, search with ripgrep, write, edit, move, run),
-  whatever `~/.void/mcp.json` names, and whatever skills `~/.void/skills`
-  holds. Every mounted tool is a switch in `/mcp` and `/skill`: on, signed,
-  or off. The toolbox starts `signed`: each call shows you a card first.
-  Edit `mcp.json` while the shell runs: the next `/mcp` picks it up.
-- **weather** — below.
-- **dummy-weather** — the weather agent replayed on a scripted model and
-  canned data: no key, no network, the whole protocol on screen.
-
-Your own agent mounts with `--agent module:function`, any
-`build_agent(llm) -> Agent`.
-
-![a signature card holding a gated call](screenshots/approval.svg)
-
-`/` opens the command menu: `/model`, `/key`, `/agent`, `/mcp`, `/skill`,
-`/session`, `/new`, `/clear`, `/attach <path>`, `/paste`, `/status`,
-`/help`, `/quit`. Drop a file into the composer or write `@path` to attach
-it; ⌘V / ctrl+v pastes an image from the clipboard. ↑ in an empty composer
-rewinds to an earlier message to edit and resend. Esc stops a turn.
-
-### The weather agent
-
-Five thin tools over [Open-Meteo](https://open-meteo.com) — `geocode`,
-`current`, `hourly`, `daily`, `history` — no key, and the model as the
-scheduler. Each tool is one request; the intelligence is in how the model
-schedules them, so the questions can be as awkward as you like:
-
-- *Which of Taipei, Osaka and Singapore is coolest this weekend, and will
-  any of them get rain?* — three places resolved in one step, three `daily`
-  calls in the next, then a table.
-- *When tomorrow does the wind in Berlin drop below 20 km/h?* — `hourly`
-  for the right date in Berlin's own timezone, then the model reads the
-  hours.
-- *How much warmer is London this week than the same week last year?* —
-  `daily` and `history` side by side, the difference computed in the answer.
-- *What's it like in Springfield?* — `geocode` returns several; the agent
-  asks you which, on a card, and carries on with your answer.
-
-The plan updates as it goes; when a result surprises it, it reflects
-before continuing. `cli/agents/weather.py` is the whole thing: the tools, the
-system prompt, `build_agent` — and `dummy`, the same agent on a scripted
-model.
 
 ## The framework
 
@@ -279,6 +187,100 @@ async def with_files() -> None:
 - A gated call is put to whoever attends the run (`agent.run(…, human=…)`).
   With nobody attending, the turn ends with the card open instead of running
   it — the model never decides whether a side effect runs.
+
+## The terminal UI
+
+There is also a terminal UI, for trying the framework before writing a
+line and for using an agent day to day. `void` is the same runtime in a
+terminal: one binary per platform, nothing to install — the UI, the
+agents, the MCP SDK and ripgrep inside.
+
+Four ways in.
+
+**The binary.** Download `void-agent-cli-<platform>` from
+[Releases](https://github.com/hoyipyik/void-agent/releases) — Linux x86_64
+and arm64, macOS Intel and Apple Silicon, Windows — and run it:
+
+```bash
+chmod +x void-agent-cli-macos-arm64 && ./void-agent-cli-macos-arm64
+```
+
+macOS asks once the first time: right-click → Open, or
+`xattr -d com.apple.quarantine void-agent-cli-macos-arm64`.
+
+**From a checkout.** uv installs the CLI's dependencies with the rest:
+
+```bash
+git clone https://github.com/hoyipyik/void-agent && cd void-agent
+make setup                  # uv sync, .env from .env.example
+make cli                    # reads .env for the key; the same as `uv run python -m cli`
+```
+
+**With your own agent.** Any `build_agent(llm) -> Agent` in a module
+beside you, mounted at start; `VOID_AGENT` names it the same way:
+
+```bash
+./void-agent-cli-macos-arm64 --agent my_agents:build_agent
+```
+
+**As your own binary.** The same packer the release runs:
+
+```bash
+make cli-build              # dist/void, this checkout's ripgrep inside; FETCH=1 fetches the official one
+```
+
+On first start it asks for a provider and a key — or reads
+`ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `OLLAMA_MODEL` from the
+environment. `/model` lists the Anthropic and OpenAI models, then whatever
+a local Ollama has installed. Sessions and the config live under `~/.void`;
+`VOID_HOME` moves them.
+
+Three agents come built in; `/agent` switches:
+
+- **universal** — the model, a live plan, reflection, `ask_user`, and every
+  tool the process mounted: void's own **toolbox** over the directory you
+  started in (read, list, search with ripgrep, write, edit, move, run),
+  whatever `~/.void/mcp.json` names, and whatever skills `~/.void/skills`
+  holds. Every mounted tool is a switch in `/mcp` and `/skill`: on, signed,
+  or off. The toolbox starts `signed`: each call shows you a card first.
+  Edit `mcp.json` while the shell runs: the next `/mcp` picks it up.
+- **weather** — below.
+- **dummy-weather** — the weather agent replayed on a scripted model and
+  canned data: no key, no network, the whole protocol on screen.
+
+Your own agent mounts with `--agent module:function`, any
+`build_agent(llm) -> Agent`.
+
+![a signature card holding a gated call](screenshots/approval.svg)
+
+`/` opens the command menu: `/model`, `/key`, `/agent`, `/mcp`, `/skill`,
+`/session`, `/new`, `/clear`, `/attach <path>`, `/paste`, `/status`,
+`/help`, `/quit`. Drop a file into the composer or write `@path` to attach
+it; ⌘V / ctrl+v pastes an image from the clipboard. ↑ in an empty composer
+rewinds to an earlier message to edit and resend. Esc stops a turn.
+
+### The weather agent
+
+Five thin tools over [Open-Meteo](https://open-meteo.com) — `geocode`,
+`current`, `hourly`, `daily`, `history` — no key, and the model as the
+scheduler. Each tool is one request; the intelligence is in how the model
+schedules them, so the questions can be as awkward as you like:
+
+- *Which of Taipei, Osaka and Singapore is coolest this weekend, and will
+  any of them get rain?* — three places resolved in one step, three `daily`
+  calls in the next, then a table.
+- *When tomorrow does the wind in Berlin drop below 20 km/h?* — `hourly`
+  for the right date in Berlin's own timezone, then the model reads the
+  hours.
+- *How much warmer is London this week than the same week last year?* —
+  `daily` and `history` side by side, the difference computed in the answer.
+- *What's it like in Springfield?* — `geocode` returns several; the agent
+  asks you which, on a card, and carries on with your answer.
+
+The plan updates as it goes; when a result surprises it, it reflects
+before continuing. `cli/agents/weather.py` is the whole thing: the tools, the
+system prompt, `build_agent` — and `dummy`, the same agent on a scripted
+model.
 
 ## License
 

@@ -438,7 +438,7 @@ async def test_a_turns_cost_trails_it_and_the_bar_says_the_context_and_the_consu
         await finished(app)
         await pilot.pause()
         # One trailer for the turn, after everything it produced.
-        assert usage_lines(app) == ["∑ 2 steps · 2.6k in · 57 out · 1.2k cached"]
+        assert usage_lines(app) == ["⏺ 2 steps · 2.6k in · 57 out · 1.2k cached"]
         assert [type(child).__name__ for child in app.query_one(TurnView).children][-1] == "Static"
         assert app.shell.status.label.endswith(" · 1.4k ctx · 2.7k consumed")
         # The next turn (the same script again: the agent is rebuilt every
@@ -446,7 +446,7 @@ async def test_a_turns_cost_trails_it_and_the_bar_says_the_context_and_the_consu
         await pilot.press(*"and now?", "enter")
         await finished(app)
         await pilot.pause()
-        assert usage_lines(app) == ["∑ 2 steps · 2.6k in · 57 out · 1.2k cached"] * 2
+        assert usage_lines(app) == ["⏺ 2 steps · 2.6k in · 57 out · 1.2k cached"] * 2
         assert app.shell.status.label.endswith(" · 1.4k ctx · 5.3k consumed")
         # Where the round-trip ended: after the text it streamed, before
         # the calls it made.
@@ -473,7 +473,7 @@ async def test_a_reopened_session_shows_its_cost_lines_and_context_again(tmp_pat
         assert " consumed" not in app.shell.status.label
         await app.shell.reopen(session_id)
         await pilot.pause()
-        assert usage_lines(app) == ["∑ 1 step · 800 in · 3 out"]
+        assert usage_lines(app) == ["⏺ 1 step · 800 in · 3 out"]
         assert app.shell.status.label.endswith(" · 800 ctx · 803 consumed")
 
 

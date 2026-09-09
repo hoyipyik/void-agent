@@ -16,7 +16,7 @@ one per update, so the latest state is at the reading edge and the
 earlier ones stay as the record of how it moved; `data-reflection` → a
 card; `data-ask` → the question card, its options a list answered with
 the keys; `data-usage` → nothing in the flow: the turn's are summed
-into one muted `∑` trailer after everything, when the turn is over
+into one muted trailer after everything, when the turn is over
 (`finish`); any other `data-*` → a folded card; `data-step` stays silent;
 `data-error` and `data-cancelled` → a line. Which key means "yes" is
 decided on the card — a signature card answers with a boolean, every
@@ -144,7 +144,9 @@ class TurnView(Vertical):
 
     async def finish(self) -> None:
         """The turn is over: flush the streams, close the open cards, and
-        say what the turn cost — one muted trailer, after everything."""
+        say what the turn cost — one muted trailer after everything, its
+        dot in the gutter like every other line's, in the accent so it
+        reads as the ledger and not as more speech."""
         for stream in self._streams.values():
             await stream.stop()
         self._streams.clear()
@@ -155,7 +157,7 @@ class TurnView(Vertical):
             await self.mount(
                 Static(
                     Content.from_markup(
-                        "[$text-muted]∑ $steps · $cost[/]",
+                        "[$accent]⏺[/] [$text-muted]$steps · $cost[/]",
                         steps=steps,
                         cost=usage_label(self._spent),
                     ),

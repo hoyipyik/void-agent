@@ -8,7 +8,8 @@ hexes chosen to read on either. Every colour a widget shows is quoted
 from here by name — `[$primary]` in markup, `$primary` in CSS — so the
 palette changes in one place. The primary is the prompt sign, the
 borders, the headings; the secondary is the logo's second word and a
-tool's own cards; success, warning and error mark a tool's state.
+tool's own cards; the accent is the turn's account; success, warning
+and error mark a tool's state.
 
 Rules that follow from the background being unknown: never paint a
 surface with a hex, never tint with an alpha (`$primary 25%` blends

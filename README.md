@@ -33,8 +33,6 @@ or an answer — goes straight to the person from wherever it arose.
 - **About 2,000 lines, pydantic only.** One concept per file; provider
   SDKs behind optional extras.
 
-![the weather agent answering a two-city question](screenshots/weather.svg)
-
 ## The framework
 
 ### Install
@@ -194,6 +192,8 @@ There is also a terminal UI, for trying the framework before writing a
 line and for using an agent day to day. `void` is the same runtime in a
 terminal: one binary per platform, nothing to install — the UI, the
 agents, the MCP SDK and ripgrep inside.
+
+![the weather agent answering a two-city question](screenshots/weather.svg)
 
 Four ways in.
 

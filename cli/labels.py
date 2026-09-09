@@ -29,11 +29,16 @@ def model_label(config: Config) -> str:
     return f"{PROVIDER_LABELS[config.provider]} · {model}"
 
 
-def bar_label(config: Config, agent: str, context: int = 0) -> str:
-    """What the status line's right side says: the agent, the model, and
-    the context the model read last — once a round-trip has said."""
+def bar_label(config: Config, agent: str, context: int = 0, consumed: int = 0) -> str:
+    """What the status line's right side says: the agent, the model, the
+    context the model read last, and what the session has consumed so far
+    (in and out together) — each once a round-trip has said."""
     label = f"{agent} · {model_label(config)}"
-    return f"{label} · {tokens(context)} ctx" if context else label
+    if context:
+        label += f" · {tokens(context)} ctx"
+    if consumed:
+        label += f" · {tokens(consumed)} consumed"
+    return label
 
 
 def tokens(count: int) -> str:

@@ -56,6 +56,12 @@ class Tally:
     steps: int = 0
     context: int = 0
 
+    @property
+    def consumed(self) -> int:
+        """Everything the session has spent, in and out together — the
+        one number the status line carries."""
+        return self.total.input + self.total.output
+
 
 @dataclass(slots=True)
 class Session:

@@ -87,6 +87,12 @@ async def forever(input: Nothing) -> dict[str, str]:
     return {}
 
 
+@tool(description="returns after a moment")
+async def nap(input: Nothing) -> dict[str, str]:
+    await asyncio.sleep(1.1)
+    return {}
+
+
 def app_with(
     tmp_path: Path,
     script: list[ScriptedStep],
@@ -497,7 +503,7 @@ async def test_a_model_that_reports_nothing_leaves_only_the_time(tmp_path: Path)
         assert " consumed" not in app.shell.status.label
 
 
-async def test_the_status_line_times_the_step_and_the_trailer_the_turn(tmp_path: Path) -> None:
+async def test_the_status_line_times_the_turn_and_so_does_its_trailer(tmp_path: Path) -> None:
     app = app_with(tmp_path, [call("forever", {})], forever)
     async with app.run_test() as pilot:
         await pilot.press(*"hi", "enter")
@@ -513,3 +519,16 @@ async def test_the_status_line_times_the_step_and_the_trailer_the_turn(tmp_path:
     parts = stored_parts(app)
     assert parts[-2]["type"] == "data-elapsed" and parts[-2]["data"]["seconds"] >= 1
     assert parts[-1] == {"type": "data-cancelled", "data": {}}
+
+
+async def test_the_stopwatch_counts_the_whole_turn_not_the_step(tmp_path: Path) -> None:
+    app = app_with(tmp_path, [call("nap", {}), call("forever", {})], nap, forever)
+    async with app.run_test() as pilot:
+        await pilot.press(*"hi", "enter")
+        await until(pilot, lambda: len(app.query(ToolChip)) == 2)
+        await pilot.pause(0.3)
+        # The second step began after a second-long first one: a stopwatch
+        # restarted per step would read 0 here.
+        assert app.shell.status.elapsed >= 1
+        await pilot.press("escape")
+        await finished(app)

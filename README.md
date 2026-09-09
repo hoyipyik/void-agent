@@ -60,7 +60,7 @@ macOS asks once the first time: right-click → Open, or
 
 ```bash
 git clone https://github.com/hoyipyik/void-agent && cd void-agent
-uv sync
+make setup                  # uv sync, .env from .env.example
 make cli                    # reads .env for the key; the same as `uv run python -m cli`
 ```
 

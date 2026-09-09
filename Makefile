@@ -1,9 +1,17 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help check test cli cli-build screenshots compile compile-verify
+.PHONY: help setup check test cli cli-build screenshots compile compile-verify
 
 help: ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(firstword $(MAKEFILE_LIST)) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+
+# The Python environment and nothing else: the app looks for its own
+# providers (a key, a local Ollama) when it starts.
+setup: ## first run: uv sync (dev + cli), .env from .env.example, ripgrep on PATH?
+	@command -v uv >/dev/null || { echo "uv is missing: https://docs.astral.sh/uv/getting-started/installation/"; exit 1; }
+	uv sync
+	@test -f .env || { cp .env.example .env; echo "wrote .env from .env.example: fill in ONE provider's key (or leave it: the app asks on first start)"; }
+	@command -v rg >/dev/null || test -x .venv/bin/rg || echo "note: ripgrep (rg) is neither on PATH nor in .venv; the CLI's search tool needs it"
 
 check: ## all quality gates: format, lint, types, tests
 	uv run ruff format --check .

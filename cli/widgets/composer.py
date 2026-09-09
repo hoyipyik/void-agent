@@ -25,7 +25,7 @@ from textual.binding import BindingType
 from textual.message import Message as UiMessage
 from textual.widgets import TextArea
 
-from cli.attachments import paths_in
+from cli.session.attachments import paths_in
 
 MENU_KEYS = frozenset({"up", "down", "tab", "escape"})
 REWIND_KEYS = frozenset({"up", "down", "escape"})

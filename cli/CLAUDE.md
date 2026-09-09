@@ -42,13 +42,7 @@ one way too.
   and its menu, the rewind, the attachments, the turn and its questions,
   and the session's own commands (`/session`, `/new`, `/clear`,
   `/attach`, `/paste`, `/detach`, `/status`, `/help`, `/quit`); the rest
-  go up to the app; `app.shell` is how the tests reach it · `runner.py`
-  `Turn`: one run as a task and the loop that drains its stream and its
-  questions concurrently, folding events into parts and writing the
-  transport markers (`data-cancelled`, `data-error`); no Textual, tested
-  against `ScriptedLlm` directly · `asks.py` `Desk`: the questions a
-  turn is waiting on and the one the composer answers in words — the
-  application's edge, where an answer's shape is settled · `labels.py` `tilde`, `model_label`, `bar_label` · `theme.py`
+  go up to the app; `app.shell` is how the tests reach it · `labels.py` `tilde`, `model_label`, `bar_label` · `theme.py`
   the one Textual theme; every colour is quoted from it (`[$primary]`,
   `$success`) · `commands.py` slash commands as `Spec`s: `matching` for
   the menu, `complete`, `parse` · `config.py` the provider, the agent
@@ -66,11 +60,17 @@ one way too.
   the whole protocol runs with no key and no network) plus what
   `--agent` / `VOID_AGENT` mounted at start (`module:function`, imported at the door
   — a failure exits); `/agent` chooses among the mounted only;
-  `Registry.build_agent(config)` is the per-turn factory · `session.py`
-  sessions on disk (`~/.void/sessions/<id>.json`, parts verbatim, the
-  server store's shape) and their model-facing projection ·
-  `attachments.py` a file as a `file` part (images, PDFs, text; limits;
-  `paths_in`, `mentions`) · `clipboard.py` the OS clipboard through
+  `Registry.build_agent(config)` is the per-turn factory · `session/`
+  what is the session's, with no Textual in it: `store.py` sessions on
+  disk (`~/.void/sessions/<id>.json`, parts verbatim, the server store's
+  shape) and their model-facing projection · `runner.py` `Turn`: one run
+  as a task and the loop that drains its stream and its questions
+  concurrently, folding events into parts and writing the transport
+  markers (`data-cancelled`, `data-error`), tested against `ScriptedLlm`
+  directly · `asks.py` `Desk`: the questions a turn is waiting on and the
+  one the composer answers in words — the application's edge, where an
+  answer's shape is settled · `attachments.py` a file as a `file` part
+  (images, PDFs, text; limits; `paths_in`, `mentions`) · `clipboard.py` the OS clipboard through
   osascript / wl-paste / xclip / PowerShell, read for a copied file or
   image and written on copy (pbcopy / wl-copy / xclip / PowerShell), the
   runner and the writer seams.

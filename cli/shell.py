@@ -7,10 +7,10 @@ config and the file it lives in, the mounted agents, servers and skills,
 the model and its key — is the app's (`cli/app.py`), reached as `void`.
 
 The runtime runs in-process: a turn is `agent.run(history, events,
-human=…)` on the app's own event loop (`cli/runner.py`), its stream
+human=…)` on the app's own event loop (`cli/session/runner.py`), its stream
 drained the way a server drains it, each event folded into `parts` and
 rendered by the turn's `TurnView` (`cli/widgets/turn.py`). The session
-lives on disk (`cli/session.py`) as parts; what the next turn's model
+lives on disk (`cli/session/store.py`) as parts; what the next turn's model
 reads is the session's own projection of them — semantic resume without
 a server.
 
@@ -18,11 +18,11 @@ The person attends the run through a `HumanChannel`: every question —
 the model's `ask_user`, a gate three layers down — arrives as a
 `Question` and goes out as a card. A signature card's list replies with
 a boolean, a choice card's with the option; an input card is answered in
-the composer, which opens for it while the turn waits (`cli/asks.py`).
+the composer, which opens for it while the turn waits (`cli/session/asks.py`).
 The reply wakes the frame that asked, in place. Escape stops a turn: the
 run is cancelled, the message marked cancelled, nothing else changes.
 
-Attachments (`cli/attachments.py`) ride the message as `file` parts: a
+Attachments (`cli/session/attachments.py`) ride the message as `file` parts: a
 path pasted or dragged into the composer, an `@path` in the text, the OS
 clipboard on ctrl+v or `/paste` (`cli/clipboard.py`), `/attach <path>`.
 They wait in the bar above the prompt until the message goes.
@@ -47,8 +47,6 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import OptionList, Static, TextArea
 
-from cli.asks import Desk
-from cli.attachments import mentions, read_attachment
 from cli.commands import (
     Attach,
     Clear,
@@ -66,9 +64,11 @@ from cli.commands import (
     parse,
 )
 from cli.labels import bar_label
-from cli.runner import Turn
 from cli.screens import SessionPicker
 from cli.session import Session, SessionStore
+from cli.session.asks import Desk
+from cli.session.attachments import mentions, read_attachment
+from cli.session.runner import Turn
 from cli.widgets.ask import AskCard
 from cli.widgets.attachbar import AttachmentBar
 from cli.widgets.composer import Composer
@@ -492,7 +492,7 @@ class Shell(Screen[None]):
             self._composer_waits(False)
 
     async def _stream(self, view: TurnView) -> list[dict[str, Any]]:
-        """Run the turn (`cli/runner.py`), the view following every event
+        """Run the turn (`cli/session/runner.py`), the view following every event
         and the status line saying what the turn is doing, and return the
         folded parts."""
         app = self.void

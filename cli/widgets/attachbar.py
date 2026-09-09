@@ -11,7 +11,7 @@ from typing import Any
 from textual.content import Content
 from textual.widgets import Static
 
-from cli.attachments import Attachment
+from cli.session.attachments import Attachment
 
 
 class AttachmentBar(Static):

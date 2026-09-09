@@ -7,7 +7,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from cli.runner import Turn
+from cli.session.runner import Turn
 from pydantic import BaseModel, ConfigDict
 
 from void_agent import (

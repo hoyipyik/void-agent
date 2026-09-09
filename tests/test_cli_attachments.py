@@ -10,10 +10,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 from cli.app import VoidApp
-from cli.attachments import Attachment, mentions, paths_in, read_attachment
 from cli.clipboard import Clipboard, Writer
 from cli.config import Config
 from cli.session import SessionStore
+from cli.session.attachments import Attachment, mentions, paths_in, read_attachment
 from textual import events
 
 from void_agent import Agent, ImageContent, Message, ScriptedLlm, TextContent, say

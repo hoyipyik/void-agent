@@ -151,6 +151,11 @@ class VoidApp(App[None]):
             )
 
     async def on_unmount(self) -> None:
+        # A mount still in flight is cancelled, not left to land on a
+        # screen that is gone: it would note in a log that no longer
+        # exists, and an exception nobody awaits is reported at exit.
+        if self._mounting is not None:
+            self._mounting.cancel()
         await self.bench.close()
 
     # ── what is mounted: servers and skills ────────────────────────────

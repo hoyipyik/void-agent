@@ -1348,3 +1348,30 @@ async def test_slash_agent_shows_each_rows_source_and_why_one_cannot_load(tmp_pa
         await finished(app)
         await pilot.pause()
         assert "cannot load" in app.shell.replies()[-1].source
+
+
+async def test_closing_the_app_cancels_a_mount_still_in_flight(tmp_path: Path) -> None:
+    """The servers start on a task of their own. An app closed before they
+    are up cancels that task rather than letting it note in a log that is
+    gone — the exception nobody awaited would be reported at exit."""
+    import asyncio
+
+    from cli.mcp import Bench
+    from tests.mcp_fakes import FakeMcp, descriptor
+
+    from void_agent.mcp import McpServer
+
+    class Slow(FakeMcp):
+        async def __aenter__(self) -> FakeMcp:
+            await asyncio.sleep(0.5)  # a subprocess takes a moment; the test does not
+            return await super().__aenter__()
+
+    bench = Bench(opener=lambda spec: McpServer(client=Slow([descriptor("read_file")])))
+    app = make_app(tmp_path, ollama=ollama_down())
+    app.bench = app.agents.bench = bench
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        mounting = app._mounting  # pyright: ignore[reportPrivateUsage]
+        assert mounting is not None and not mounting.done()
+    assert mounting.cancelled()
+    assert bench.catalog == ()  # closed, and the keeper unwound with it

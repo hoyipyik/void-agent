@@ -137,9 +137,13 @@ class Bench:
             except asyncio.CancelledError:
                 raise
             except BaseException as error:  # pragma: no cover - the caller re-raises
-                mounted.set_exception(error)
+                if not mounted.done():
+                    mounted.set_exception(error)
                 raise
-            mounted.set_result(None)
+            # The opener may have stopped waiting — the app cancels its
+            # mount when it closes — and a cancelled future takes no result.
+            if not mounted.done():
+                mounted.set_result(None)
             await self._closing.wait()
 
     async def _mount(self, specs: Sequence[ServerSpec], stack: AsyncExitStack) -> None:

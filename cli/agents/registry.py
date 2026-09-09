@@ -1,13 +1,14 @@
 """Which agent the CLI runs — one of the mounted ones.
 
 The CLI is a chat client of the runtime, not an agent. The agents it can
-run are a registry: `universal` — the model, a plan, reflection, a
-question, and whatever MCP servers and skills the process mounted —
-`weather` (`cli/weather.py`, the framework's claim in one agent), plus
-any `module:function` mounted at start with `--agent` or `VOID_AGENT`,
-imported right then, so a module that cannot load fails at the door, not
-in a turn. `/agent` chooses among what is mounted and nothing else: a
-name that is not in the list is an error at once, never saved.
+run are a registry: `universal` (`universal.py` — the model, a plan,
+reflection, a question, and whatever MCP servers and skills the process
+mounted), `weather` and `dummy-weather` (`weather.py`, the framework's
+claim in one agent and the example to read), plus any `module:function`
+mounted at start with `--agent` or `VOID_AGENT`, imported right then, so
+a module that cannot load fails at the door, not in a turn. `/agent`
+chooses among what is mounted and nothing else: a name that is not in
+the list is an error at once, never saved.
 
 The agent is rebuilt every turn from the config, so a switch takes
 effect at once. Whatever a builder's own entry point expects, the CLI
@@ -22,10 +23,11 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import cast
 
+from cli.agents.universal import chat
 from cli.config import DEFAULT_AGENT, Config
 from cli.llm import resolve_llm
 from cli.mcp.bench import Bench
-from void_agent import HUMAN, Agent, Llm, ScriptedLlm, Tool, say
+from void_agent import Agent, Llm, ScriptedLlm, Tool, say
 from void_agent.skills import SkillInfo, tools_for
 
 Builder = Callable[[Llm], Agent]
@@ -44,46 +46,22 @@ CATALOG: tuple[AgentInfo, ...] = (
         "universal",
         "Universal",
         "the model, a plan, a question — and whatever MCP you mounted",
-        "cli.agents:universal",
+        "cli.agents.universal",
     ),
     AgentInfo(
         "weather",
         "Weather",
         "Open-Meteo: forecasts, hours, history — ask it anything about the weather",
-        "cli.weather",
+        "cli.agents.weather",
     ),
     AgentInfo(
         "dummy-weather",
         "Dummy weather",
         "the weather agent replayed on a scripted model and canned data — no key, no network",
-        "cli.weather:dummy",
+        "cli.agents.weather:dummy",
     ),
 )
 assert DEFAULT_AGENT in {info.id for info in CATALOG}
-
-SYSTEM = "You are void, a helpful assistant in a terminal. Answer in Markdown."
-
-UNIVERSAL_SYSTEM = (
-    "You are void, a helpful assistant in a terminal. Answer in Markdown.\n\n"
-    "Your tools are whatever the user mounted — read their descriptions and use"
-    " them; you may have none, in which case answer from what you know and say so"
-    " when a task would need one.\n\n"
-    "Keep your plan current with update_plan whenever a task takes more than one"
-    " step. When a tool result surprises you or a step fails, use reflect before"
-    " continuing.\n\n"
-    "Judge for yourself as far as the facts allow. When a call fails, use what the"
-    " error tells you and try again before concluding anything. Ask the user only"
-    " when the way forward genuinely depends on them: ask_user with kind='choice'"
-    " and the ways forward as options, or kind='input' for a missing fact, and"
-    " carry on with the answer. Never end your turn with a question written in"
-    " text.\n\n"
-    "Some tools are marked as needing the user's signature: calling one shows them"
-    " a card, and the call runs only if they sign it. That is normal — call the"
-    " tool when the task needs it, and if they decline, say so and stop rather"
-    " than trying another way around it."
-)
-
-MAX_STEPS = 80
 
 NO_PROVIDER = (
     "No provider configured. `/model` picks one — a cloud model asks for its key, an"
@@ -110,28 +88,6 @@ def load_builder(spec: str) -> Builder:
     if not callable(builder):
         raise AgentLoadError(f"{module_name} has no callable {attribute}")
     return cast("Builder", builder)
-
-
-def chat(llm: Llm) -> Agent:
-    """The plain assistant: no tools, the model alone."""
-    return (
-        Agent(llm, "void", "the terminal assistant")
-        .with_system(SYSTEM)
-        .prompt(lambda history: list(history))
-    )
-
-
-def universal(llm: Llm) -> Agent:
-    """the model, a plan, a question — and whatever MCP you mounted"""
-    return (
-        Agent(llm, "void", "the terminal assistant")
-        .with_system(UNIVERSAL_SYSTEM)
-        .with_max_steps(MAX_STEPS)
-        .with_plan()
-        .with_reflection()
-        .prompt(lambda history: list(history))
-        .tool(HUMAN)
-    )
 
 
 class Registry:

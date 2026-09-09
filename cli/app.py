@@ -48,8 +48,8 @@ from cli.providers.ollama import Ollama, OllamaDown, find_installed, usable
 from cli.screens import AgentPicker, KeyPrompt, McpPicker, ModelPicker, SkillPicker
 from cli.session import SessionStore
 from cli.shell import Shell
-from cli.theme import VOID_THEME
 from cli.widgets.panels import Panel, status_panel
+from cli.widgets.theme import VOID_THEME
 from void_agent import Agent
 from void_agent.skills import SkillFolderError, SkillInfo, read_skills
 

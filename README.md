@@ -126,7 +126,7 @@ schedules them, so the questions can be as awkward as you like:
   asks you which, on a card, and carries on with your answer.
 
 The plan updates as it goes; when a result surprises it, it reflects
-before continuing. `cli/weather.py` is the whole thing: the tools, the
+before continuing. `cli/agents/weather.py` is the whole thing: the tools, the
 system prompt, `build_agent` — and `dummy`, the same agent on a scripted
 model.
 

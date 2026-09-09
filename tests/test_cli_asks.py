@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import asyncio
 
-from cli.asks import Desk
+from cli.session.asks import Desk
 
 from void_agent import Ask, Call, Question
 

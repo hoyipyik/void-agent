@@ -26,8 +26,8 @@ module of ours.
 
 Three layers, the dependencies pointing down. `main → app → shell →
 widgets / screens → the rest`; nothing below `shell` imports `app` or
-`shell`, and nothing outside `widgets/`, `screens/`, `shell.py`,
-`app.py` and `theme.py` imports Textual. `providers ← config ← llm` is
+`shell`, and nothing outside `widgets/`, `screens/`, `shell.py`
+and `app.py` imports Textual. `providers ← config ← llm` is
 one way too.
 
 - `main.py` the entry point (`VOID_HOME` moves the state dir;
@@ -42,35 +42,33 @@ one way too.
   and its menu, the rewind, the attachments, the turn and its questions,
   and the session's own commands (`/session`, `/new`, `/clear`,
   `/attach`, `/paste`, `/detach`, `/status`, `/help`, `/quit`); the rest
-  go up to the app; `app.shell` is how the tests reach it · `runner.py`
-  `Turn`: one run as a task and the loop that drains its stream and its
-  questions concurrently, folding events into parts and writing the
-  transport markers (`data-cancelled`, `data-error`); no Textual, tested
-  against `ScriptedLlm` directly · `asks.py` `Desk`: the questions a
-  turn is waiting on and the one the composer answers in words — the
-  application's edge, where an answer's shape is settled · `labels.py` `tilde`, `model_label`, `bar_label` · `theme.py`
-  the one Textual theme; every colour is quoted from it (`[$primary]`,
-  `$success`) · `commands.py` slash commands as `Spec`s: `matching` for
+  go up to the app; `app.shell` is how the tests reach it · `labels.py` `tilde`, `model_label`, `bar_label` · `commands.py` slash commands as `Spec`s: `matching` for
   the menu, `complete`, `parse` · `config.py` the provider, the agent
   and the marks: environment first (`ANTHROPIC_API_KEY` /
   `OPENAI_API_KEY` / `OLLAMA_MODEL` + `OLLAMA_HOST`; `VOID_AGENT` names
   the agent), `~/.void/config.json` fills in (written by the key prompt,
   `/key`, `/model`, `/agent`, `/mcp` and `/skill`, mode 0600) · `llm.py`
   `resolve_llm`, a `Config` as an `Llm` — the one file in the CLI that
-  imports a provider's SDK, lazily · `agents.py` which agent runs: a
-  `Registry` of `universal` (the default — the model, a plan,
+  imports a provider's SDK, lazily · `agents/` which agent runs: `registry.py` a
+  `Registry` of `universal` (`universal.py`: the default — the model, a plan,
   reflection, `ask_user`, and whatever MCP is mounted), `weather` and
-  `dummy-weather` (`weather.py`: Open-Meteo behind five thin tools — geocode,
+  `dummy-weather` (`weather.py`, the example agent: Open-Meteo behind five thin tools — geocode,
   current, hourly, daily, history — the model as the scheduler; `dummy`
   is the same agent on a `ScriptedLlm` and a canned `httpx` transport, so
   the whole protocol runs with no key and no network) plus what
   `--agent` / `VOID_AGENT` mounted at start (`module:function`, imported at the door
   — a failure exits); `/agent` chooses among the mounted only;
-  `Registry.build_agent(config)` is the per-turn factory · `session.py`
-  sessions on disk (`~/.void/sessions/<id>.json`, parts verbatim, the
-  server store's shape) and their model-facing projection ·
-  `attachments.py` a file as a `file` part (images, PDFs, text; limits;
-  `paths_in`, `mentions`) · `clipboard.py` the OS clipboard through
+  `Registry.build_agent(config)` is the per-turn factory · `session/`
+  what is the session's, with no Textual in it: `store.py` sessions on
+  disk (`~/.void/sessions/<id>.json`, parts verbatim, the server store's
+  shape) and their model-facing projection · `runner.py` `Turn`: one run
+  as a task and the loop that drains its stream and its questions
+  concurrently, folding events into parts and writing the transport
+  markers (`data-cancelled`, `data-error`), tested against `ScriptedLlm`
+  directly · `asks.py` `Desk`: the questions a turn is waiting on and the
+  one the composer answers in words — the application's edge, where an
+  answer's shape is settled · `attachments.py` a file as a `file` part
+  (images, PDFs, text; limits; `paths_in`, `mentions`) · `clipboard.py` the OS clipboard through
   osascript / wl-paste / xclip / PowerShell, read for a copied file or
   image and written on copy (pbcopy / wl-copy / xclip / PowerShell), the
   runner and the writer seams.
@@ -118,7 +116,9 @@ one way too.
   (sign + composer), the status line (a spinner and the turn's activity
   — `activity(event)` — the model on the right) · `attachbar.py` the
   attachments waiting for the next message, the list theirs ·
-  `panels.py` `Panel`, the `/help` and `/status` panels · `composer.py`
+  `panels.py` `Panel`, the `/help` and `/status` panels · `theme.py` the
+  one Textual theme; every colour is quoted from it (`[$primary]`,
+  `$success`) · `composer.py`
   the multi-line box: Enter sends; shift / alt / ctrl / cmd + Enter
   (Kitty-protocol terminals), `\` + Enter or a pasted newline adds a
   line; a pasted path attaches; ctrl+v / cmd+v ask for the OS clipboard;
@@ -137,7 +137,7 @@ one way too.
   a remote mode over a server's SSE would be the same renderer behind a
   different transport.
 - The CLI is a client, not an agent. The agent is any `build_agent(llm)`
-  in the registry (`cli/agents.py`); the default is `universal`.
+  in the registry (`cli/agents/registry.py`); the default is `universal`.
   Mounting is a process-level act (`--agent module:function`
   at start, imported then); choosing is a session-level act (`/agent`,
   among the mounted only — a name that is not there is refused, never
@@ -213,7 +213,7 @@ one way too.
   kept: clicks fold chips, the wheel scrolls the log. The log takes no
   focus: a click or a drag on it leaves the keys where they were, on the
   composer or an open card.
-- Colours come from `theme.py` by name; no widget carries a hex. The theme
+- Colours come from `widgets/theme.py` by name; no widget carries a hex. The theme
   is an ANSI one: the background and the text are the terminal's own, so
   nothing paints a surface or tints with an alpha — a highlight is solid
   `$primary` with `$block-cursor-foreground`, a quiet border `$border-blurred`.

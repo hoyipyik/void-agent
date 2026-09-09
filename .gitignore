@@ -10,3 +10,6 @@ uv.lock
 
 # scripts/compile.py stages its build here
 build/
+
+# a Claude Code session's worktrees and local settings
+.claude/

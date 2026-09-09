@@ -24,7 +24,7 @@ from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from cli.attachments import Attachment, read_attachment
+from cli.session.attachments import Attachment, read_attachment
 
 Runner = Callable[[list[str]], bytes | None]
 Writer = Callable[[list[str], bytes], bool]

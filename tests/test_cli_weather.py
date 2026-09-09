@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 import pytest
-from cli.weather import DEMO_QUESTION, build_agent, dummy, sky, weather_tools
+from cli.agents.weather import DEMO_QUESTION, build_agent, dummy, sky, weather_tools
 
 from void_agent import Answer, EventSender, Message, Rejected, ScriptedLlm, Tool
 

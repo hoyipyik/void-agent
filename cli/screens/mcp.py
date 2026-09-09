@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 
 from textual.content import Content
 from textual.message import Message
+from textual.widgets import Static
 from textual.widgets.option_list import Option, OptionDoesNotExist
 
 from cli.config import Config
@@ -27,6 +29,15 @@ NO_SERVERS = (
     '  {{"mcpServers": {{"files": {{"command": "npx", "args":'
     ' ["-y", "@modelcontextprotocol/server-filesystem", "/data"]}}}}}}'
 )
+STARTING = (
+    "Still starting — a server is a subprocess, and the first run of one fetched"
+    " with npx or bunx downloads it. Its tools appear here as it comes up."
+)
+MARKED = (
+    "A signed tool shows you the call and runs only if you sign it — your word,"
+    " never the server's. A server's tools start signed unless its entry in {path}"
+    ' says "default": "on".'
+)
 
 
 class McpPicker(Switchboard):
@@ -34,6 +45,10 @@ class McpPicker(Switchboard):
     turning one off stops it and takes its tools away. A tool is on, off,
     or signed: every call shows the person the exact arguments and runs
     only if they sign.
+
+    The board heads with what it is for: the servers up out of those
+    named, the tools the model may call unasked out of those mounted, and
+    the marks holding the rest back — recomputed on every switch.
 
     Rows are keyed `server:<name>` and `tool:<id>`, which is how the app
     tells the two apart when the board closes."""
@@ -67,6 +82,7 @@ class McpPicker(Switchboard):
         self._failure = dict(failures)
         self._mounting = mounting
         self._config = config
+        self._path = path
         self.start(
             {
                 **{
@@ -78,22 +94,64 @@ class McpPicker(Switchboard):
                 },
             }
         )
-        self.BLURB = self._blurb(path, mounting)
+        self.BLURB = self._blurb()
 
-    def _blurb(self, path: str, mounting: bool) -> str:
+    # ── the heading ────────────────────────────────────────────────────
+
+    def _blurb(self) -> str:
+        """The heading, then the one thing worth knowing right now: that the
+        servers are still coming up, or what a signed mark means."""
         if not self._servers:
-            return NO_SERVERS.format(path=path)
-        if mounting:
-            return (
-                "Still starting — a server is a subprocess, and the first run of one"
-                " fetched with npx or bunx downloads it. Reopen this board in a moment"
-                " to see its tools."
-            )
-        return (
-            "A signed tool shows you the call and runs only if you sign it — your"
-            " word, never the server's. A server's tools start signed unless its"
-            f' entry in {path} says "default": "on".'
+            return NO_SERVERS.format(path=self._path)
+        tail = STARTING if self._mounting else MARKED.format(path=self._path)
+        return f"{self._heading()}\n\n{tail}"
+
+    def _heading(self) -> str:
+        """`2/3 servers running · 12/17 tools on · 4 signed · 1 off`: the
+        servers up out of those named, the tools the model may call unasked
+        out of those the board lists, and the marks holding the rest back —
+        a count of zero is left unsaid."""
+        running = sum(1 for spec in self._servers if self._condition(spec.name) == "up")
+        marks = Counter(self._states[f"tool:{info.id}"] for info in self._shown())
+        line = (
+            f"{running}/{len(self._servers)} servers running"
+            f" · {marks['on']}/{marks.total()} tools on"
         )
+        for mark in ("signed", "off"):
+            if marks[mark]:
+                line = f"{line} · {marks[mark]} {mark}"
+        return line
+
+    def _refresh_blurb(self) -> None:
+        """The heading moves with every switch: a number gone stale on the
+        very row under it would be a lie. `BLURB` is what the board opened
+        with; the widget is the live one."""
+        self.query_one(".blurb", Static).update(self._blurb())
+
+    # ── the rows ───────────────────────────────────────────────────────
+
+    def _tools_of(self, name: str) -> list[ToolInfo]:
+        return [info for info in self._catalog if info.server == name]
+
+    def _shown(self) -> list[ToolInfo]:
+        """The tools the board lists: those of every server that is on. A
+        server that is off shows none — there are none to have."""
+        return [
+            info
+            for spec in self._servers
+            if self._states[f"server:{spec.name}"] != "off"
+            for info in self._tools_of(spec.name)
+        ]
+
+    def _condition(self, name: str) -> str:
+        """Where that server is: `off`, `failed`, `starting`, or `up`."""
+        if self._states[f"server:{name}"] == "off":
+            return "off"
+        if name in self._failure:
+            return "failed"
+        if self._mounting and not self._tools_of(name):
+            return "starting"
+        return "up"
 
     def cycle_for(self, option_id: str) -> dict[str, str]:
         return PLAIN_CYCLE if option_id.startswith("server:") else TOOL_CYCLE
@@ -105,30 +163,42 @@ class McpPicker(Switchboard):
     def selected(self, option_id: str) -> None:
         super().selected(option_id)
         if not option_id.startswith("server:"):
+            self._refresh_blurb()
             return
         name = option_id.partition(":")[2]
         # Applied now, so it is no longer a change the board has to report.
         self._initial[option_id] = self._states[option_id]
+        # A server switched on is starting until the app hands back what
+        # the bench holds; the heading must not count it up before then.
+        self._mounting = self._mounting or self._states[option_id] == "on"
+        self._refresh_blurb()
         self.post_message(self.ServerToggled(name, self._states[option_id]))
 
     def reload(
         self,
+        servers: Sequence[ServerSpec],
         config: Config,
         catalog: Sequence[ToolInfo],
         failures: Sequence[Failure],
         *,
         mounting: bool,
     ) -> None:
-        """What the bench holds now, drawn where the person is looking. The
-        switch they just threw keeps the highlight."""
+        """What the file names and the bench holds now, drawn where the
+        person is looking. The switch they just threw keeps the highlight;
+        a server the file gained since the board opened gets its row."""
         highlighted = self.choices.highlighted
         keep = (
             self.choices.get_option_at_index(highlighted).id
             if highlighted is not None and highlighted < self.choices.option_count
             else None
         )
-        self._config, self._catalog = config, list(catalog)
+        self._servers, self._config, self._catalog = list(servers), config, list(catalog)
         self._failure, self._mounting = dict(failures), mounting
+        for spec in self._servers:
+            key = f"server:{spec.name}"
+            if key not in self._states:
+                self._states[key] = config.server_state(spec.name)
+                self._initial[key] = self._states[key]
         for info in self._catalog:
             key = f"tool:{info.id}"
             if key not in self._states:
@@ -142,6 +212,7 @@ class McpPicker(Switchboard):
                 choices.highlighted = choices.get_option_index(keep)
             except OptionDoesNotExist:
                 choices.highlighted = 0
+        self._refresh_blurb()
 
     def rows(self) -> list[Option]:
         """Every server, and under each one that is on, its tools. A server
@@ -153,9 +224,8 @@ class McpPicker(Switchboard):
             rows.append(Option(self.render_row(key), id=key))
             if self._states[key] == "off":
                 continue
-            for info in self._catalog:
-                if info.server == spec.name:
-                    rows.append(Option(self.render_row(f"tool:{info.id}"), id=f"tool:{info.id}"))
+            for info in self._tools_of(spec.name):
+                rows.append(Option(self.render_row(f"tool:{info.id}"), id=f"tool:{info.id}"))
         return rows
 
     def render_row(self, option_id: str) -> Content:
@@ -171,13 +241,13 @@ class McpPicker(Switchboard):
         )
 
     def _server_row(self, name: str) -> Content:
-        state = self._states[f"server:{name}"]
-        tools = sum(1 for info in self._catalog if info.server == name)
-        if state == "off":
+        condition = self._condition(name)
+        tools = len(self._tools_of(name))
+        if condition == "off":
             note = "off"
-        elif name in self._failure:
+        elif condition == "failed":
             note = f"did not start: {self._failure[name]}"
-        elif self._mounting and not tools:
+        elif condition == "starting":
             note = "starting…"
         elif not tools:
             note = "no tools"
@@ -190,7 +260,7 @@ class McpPicker(Switchboard):
                 note = f"{note} · {_home(spec.note)}"
         return Content.from_markup(
             "  $mark  $name [$text-muted]· $note[/]",
-            mark=MARKS[state],
+            mark=MARKS[self._states[f"server:{name}"]],
             name=name.ljust(20),
             note=note,
         )

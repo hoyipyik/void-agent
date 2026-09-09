@@ -4,6 +4,7 @@ that lives on disk; slash commands pick, clear and switch."""
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +22,7 @@ from cli.widgets import Panel, UserBubble, Welcome
 from cli.widgets.welcome import LOGO_WIDTH
 from tests.test_cli_ollama import down, server
 from textual.containers import VerticalScroll
-from textual.widgets import Input, OptionList
+from textual.widgets import Input, OptionList, Static
 from textual.widgets.option_list import OptionDoesNotExist
 
 from void_agent import Agent, EventSender, Message, ScriptedLlm, say
@@ -44,6 +45,19 @@ async def mounted(app: VoidApp, pilot: Any, *, seconds: float = 30.0) -> None:
         if app.bench.catalog or app.bench.failures:
             return
         await asyncio.sleep(0.05)
+
+
+async def eventually(pilot: Any, holds: Callable[[], bool], *, seconds: float = 5.0) -> None:
+    """What a mount running on its own task will make true, once it lands —
+    `mounted` for whatever the test is looking at."""
+    import asyncio
+
+    for _ in range(int(seconds / 0.05)):
+        await pilot.pause()
+        if holds():
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError("never came to hold")
 
 
 def scripted(reply: str) -> Agent:
@@ -976,6 +990,108 @@ async def test_a_board_open_while_the_servers_start_fills_in_by_itself(
         assert "1 tool" in str(picker.choices.get_option("server:toolbox").prompt)
         await pilot.press("escape")
         await pilot.pause()
+
+
+def heading(picker: McpPicker) -> str:
+    """The line the board opens with."""
+    return str(picker.query_one(".blurb", Static).content).splitlines()[0]
+
+
+def ids(picker: McpPicker) -> list[str | None]:
+    return [option.id for option in picker.choices.options]
+
+
+async def test_the_board_heads_with_what_is_running_and_what_the_model_may_call(
+    tmp_path: Path,
+) -> None:
+    """The numbers a person opens the board for — how many servers are up,
+    how many tools the model can call unasked — head it, and move with
+    every switch thrown under them."""
+    app = mcp_app(tmp_path)
+    async with app.run_test() as pilot:
+        await finished(app)
+        await pilot.press(*"/mcp", "enter")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, McpPicker)
+        assert heading(picker) == "2/2 servers running · 2/3 tools on · 1 signed"
+
+        await pilot.press("down", "enter")  # write_file: on → signed
+        await pilot.pause()
+        assert heading(picker) == "2/2 servers running · 1/3 tools on · 2 signed"
+
+        await pilot.press("up", "enter")  # the files server: on → off
+        await finished(app)
+        await pilot.pause()
+        assert heading(picker) == "1/2 servers running · 0/1 tools on · 1 signed"
+
+        await pilot.press("down", "down", "enter")  # docs search: signed → off
+        await pilot.pause()
+        assert heading(picker) == "1/2 servers running · 0/1 tools on · 1 off"
+        await pilot.press("escape")
+        await pilot.pause()
+
+
+async def test_a_server_added_to_mcp_json_is_started_when_the_board_opens(
+    tmp_path: Path,
+) -> None:
+    """The file is the person's, and editing it must not cost a restart of
+    the shell: the board re-reads it as it opens, and a change restarts the
+    servers. An unchanged file restarts nothing — looking is not a switch."""
+    from cli.mcp import Bench
+    from cli.mcp.spec import ServerSpec
+    from tests.mcp_fakes import FakeMcp, descriptor
+
+    from void_agent.mcp import McpServer
+
+    file = tmp_path / "mcp.json"
+    toolbox = {"command": "npx", "args": ["-y", "fs"], "default": "on"}
+    file.write_text(json.dumps({"mcpServers": {"toolbox": toolbox}}))
+    opened: list[str] = []
+
+    def opener(spec: ServerSpec) -> McpServer:
+        opened.append(spec.name)
+        return McpServer(client=FakeMcp([descriptor(f"{spec.name}_tool")]))
+
+    app = VoidApp(
+        lambda _config: scripted("ok"),
+        store=SessionStore(tmp_path / "sessions"),
+        config=CONFIGURED,
+        config_file=tmp_path / "config.json",
+        ollama=ollama_down(),
+        bench=Bench(opener=opener),
+        mcp_file=file,
+        skills_dir=tmp_path / "skills",
+    )
+    async with app.run_test() as pilot:
+        await finished(app)
+        await pilot.pause()
+        assert opened == ["toolbox"]
+        await pilot.press(*"/mcp", "enter")
+        await pilot.pause()
+        await pilot.press("escape")
+        await pilot.pause()
+        assert opened == ["toolbox"]  # nothing changed, so nothing restarted
+
+        notes = {"url": "https://example.test/mcp", "default": "on"}
+        file.write_text(json.dumps({"mcpServers": {"toolbox": toolbox, "notes": notes}}))
+        await pilot.press(*"/mcp", "enter")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, McpPicker)
+        assert "mcp.json changed" in str(app.shell.query(".note").last().render())
+        await eventually(pilot, lambda: "tool:notes__notes_tool" in ids(picker))
+        assert ids(picker) == [
+            "server:toolbox",
+            "tool:toolbox__toolbox_tool",
+            "server:notes",
+            "tool:notes__notes_tool",
+        ]
+        assert heading(picker) == "2/2 servers running · 2/2 tools on"
+        assert opened == ["toolbox", "toolbox", "notes"]
+        await pilot.press("escape")
+        await pilot.pause()
+        assert "notes__notes_tool" in app.agents.build_agent(app.config).tool_names
 
 
 async def test_a_selection_in_the_log_is_copied_to_the_os_clipboard(tmp_path: Path) -> None:

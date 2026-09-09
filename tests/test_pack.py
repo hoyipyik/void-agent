@@ -11,11 +11,14 @@ from scripts.pack import RIPGREP_TARGETS, PackError, fetch_ripgrep, flags, regis
 
 
 def test_every_agent_the_registry_can_run_is_a_hidden_import() -> None:
-    """The catalogue names its modules as strings, so the bundler cannot see
-    them; each has to be named or `/agent` picks an agent that cannot load."""
+    """The registry scans the shelf at run time, so the bundler cannot see
+    its modules; each has to be named or `/agent` lists an empty shelf."""
+    from cli.registry import BUILTIN, Registry
+
     modules = registry_modules()
-    assert modules == ("cli.agents.universal", "cli.agents.weather")
-    assert all(":" not in module for module in modules)  # the module, not module:function
+    assert modules == ("cli.agents.dummy_weather", "cli.agents.universal", "cli.agents.weather")
+    scanned = {f"cli.agents.{info.id}" for info in Registry(sources=(BUILTIN,)).entries}
+    assert scanned == set(modules)  # what the glob names is what the scan finds
 
 
 def test_the_flags_carry_what_a_bundler_cannot_see() -> None:

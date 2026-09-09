@@ -31,7 +31,6 @@ from void_agent import (
     Llm,
     ModelStep,
     Rejected,
-    ScriptedLlm,
     ScriptedStep,
     Tool,
     call,
@@ -485,9 +484,3 @@ def canned_script(today: dt.date) -> list[ScriptedStep]:
 
 
 DEMO_QUESTION = "Which is cooler this weekend, Taipei or Osaka — and will either get rain?"
-
-
-def dummy(llm: Llm, *, today: dt.date | None = None) -> Agent:
-    """the weather agent replayed on a scripted model and canned data — no key, no network"""
-    day = today or dt.date.today()
-    return build_agent(ScriptedLlm(canned_script(day)), transport=canned_transport(day), today=day)

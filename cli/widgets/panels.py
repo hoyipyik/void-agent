@@ -66,6 +66,8 @@ def status_panel(
     config: Config,
     ollama_host: str,
     installed: Sequence[ModelInfo] | None,
+    agents: str,
+    agents_dirs: str,
     mcp: str,
     mcp_file: str,
     skills: str,
@@ -104,6 +106,13 @@ def status_panel(
                 if installed is None
                 else f"{len(installed)} model{'s' if len(installed) != 1 else ''} installed"
             ),
+        )
+    )
+    lines.append(
+        Content.from_markup(
+            "  [$text-muted]agents[/]    $state [$text-muted]· $dirs[/]",
+            state=agents,
+            dirs=agents_dirs,
         )
     )
     lines.append(

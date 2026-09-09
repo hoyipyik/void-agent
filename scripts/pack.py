@@ -81,13 +81,17 @@ def rg_name() -> str:
 
 
 def registry_modules() -> tuple[str, ...]:
-    """The modules the agent registry imports at run time. The bundler
-    cannot see them — the catalogue names them as strings — so each becomes
-    a hidden import."""
-    sys.path.insert(0, str(ROOT))
-    from cli.agents import CATALOG
-
-    return tuple(sorted({info.spec.partition(":")[0] for info in CATALOG}))
+    """The built-in shelf's modules. The registry scans them at run time —
+    the bundler cannot see that — so each becomes a hidden import, and
+    `pkgutil.iter_modules` finds them in the archive."""
+    shelf = ROOT / "cli" / "agents"
+    return tuple(
+        sorted(
+            f"cli.agents.{path.stem}"
+            for path in shelf.glob("*.py")
+            if not path.name.startswith("_")
+        )
+    )
 
 
 def local_ripgrep() -> Path | None:

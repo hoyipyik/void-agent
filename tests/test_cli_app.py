@@ -11,12 +11,12 @@ from typing import Any
 
 import httpx
 import pytest
-from cli.agents import Registry
 from cli.app import BuildAgent, VoidApp
 from cli.clipboard import Clipboard
 from cli.config import Config
 from cli.labels import model_label
 from cli.providers.ollama import Ollama
+from cli.registry import BUILTIN, Registry, folder
 from cli.screens import AgentPicker, KeyPrompt, McpPicker, ModelPicker, SessionPicker, SkillPicker
 from cli.session import SessionStore
 from cli.widgets import Panel, UserBubble, Welcome
@@ -318,9 +318,14 @@ async def test_an_openai_id_switches_the_provider_and_asks_for_its_key(tmp_path:
         assert app.config.anthropic_api_key == "sk-test"
 
 
-async def test_slash_agent_lists_the_mounted_agents_and_refuses_any_other(tmp_path: Path) -> None:
-    registry = Registry()
-    registry.mount("cli.agents.universal:chat")  # what `--agent module:function` mounts at start
+async def test_slash_agent_lists_the_scanned_agents_and_refuses_any_other(tmp_path: Path) -> None:
+    home = tmp_path / "agents"
+    home.mkdir()
+    (home / "mine.py").write_text(
+        '"""my own"""\nfrom void_agent import Agent\n\n'
+        'def build_agent(llm):\n    return Agent(llm, "mine", "my own")\n'
+    )
+    registry = Registry(sources=(BUILTIN, folder(home, label="~/agents")))
     app = VoidApp(
         registry.build_agent,
         store=SessionStore(tmp_path / "sessions"),
@@ -333,14 +338,14 @@ async def test_slash_agent_lists_the_mounted_agents_and_refuses_any_other(tmp_pa
         await pilot.press(*"/agent", "enter")
         await pilot.pause()
         assert isinstance(app.screen, AgentPicker)
-        await pilot.press("4")  # universal, weather, dummy-weather, then the mounted one
+        await pilot.press("4")  # universal, dummy_weather, weather, then the folder's
         await pilot.pause()
         assert not isinstance(app.screen, AgentPicker)
-        assert app.config.agent == "cli.agents.universal:chat"
-        await pilot.press(*"/agent no.such:thing", "enter")  # not mounted: refused at once
+        assert app.config.agent == "mine"
+        await pilot.press(*"/agent no_such", "enter")  # not there: refused at once
         await pilot.pause()
         assert app.query(".error")
-        assert app.config.agent == "cli.agents.universal:chat"
+        assert app.config.agent == "mine"
         await pilot.press(*"/agent universal", "enter")
         await pilot.pause()
         assert app.config.agent == "universal"

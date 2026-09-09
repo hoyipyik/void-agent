@@ -84,9 +84,9 @@ def write(name: str, svg: str) -> None:
 async def scenes(home: Path, project: Path) -> None:
     os.environ["VOID_HOME"] = str(home)
     # cli.main reads VOID_HOME at import, so it is imported after the override.
-    from cli.agents import REGISTRY
     from cli.app import VoidApp
     from cli.config import load_config
+    from cli.registry import REGISTRY
     from cli.session import SessionStore
     from cli.widgets import AskCard
 

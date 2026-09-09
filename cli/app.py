@@ -28,7 +28,6 @@ from textual.app import App
 from textual.binding import BindingType
 from textual.screen import Screen
 
-from cli.agents import REGISTRY, Registry
 from cli.clipboard import Clipboard
 from cli.commands import AgentPick, Command, Key, McpPick, Model, SkillPick
 from cli.config import Config, Switch, ToolState, save_config
@@ -45,6 +44,7 @@ from cli.providers.catalog import (
     provider_of,
 )
 from cli.providers.ollama import Ollama, OllamaDown, find_installed, usable
+from cli.registry import AGENTS_DIR, REGISTRY, AgentLoadError, Registry
 from cli.screens import AgentPicker, KeyPrompt, McpPicker, ModelPicker, SkillPicker
 from cli.session import SessionStore
 from cli.shell import Shell
@@ -139,6 +139,8 @@ class VoidApp(App[None]):
         key if there is no provider."""
         # The shelf is files: read it now, so the first turn has it.
         self._read_shelf()
+        # The agents were scanned at start; what could not load is said here.
+        await self._report_agents()
         # The servers start in the background: a subprocess takes a moment
         # and the shell should not wait on it.
         self._mounting = asyncio.create_task(self._mount_mcp(), name="mcp-mount")
@@ -268,13 +270,11 @@ class VoidApp(App[None]):
                         await self._switch_model(provider, name)
             case AgentPick(name=name):
                 if name is None:
-                    self.push_screen(
-                        AgentPicker(self.agents.entries, self.config.agent), self._agent_picked
-                    )
+                    await self._open_agent_picker()
                 elif self.agents.describe(name) is None:
                     await self.shell.complain(
-                        f"no agent named {name} is mounted — /agent lists them; mount your own"
-                        " at start with --agent module:function"
+                        f"no agent named {name} is mounted — /agent lists them; your own go"
+                        f" under {tilde(self.home / AGENTS_DIR)} or a --workspace folder"
                     )
                 else:
                     await self._switch_agent(name)
@@ -313,6 +313,8 @@ class VoidApp(App[None]):
             config=self.config,
             ollama_host=self.ollama.host,
             installed=await self._installed(),
+            agents=self.agents.summary(),
+            agents_dirs=", ".join(s.label for s in self.agents.sources if s.path is not None),
             mcp=self.bench.summary(self.config, self.servers),
             mcp_file=tilde(self._mcp_file),
             skills=self.agents.skills_summary(self.config),
@@ -410,6 +412,27 @@ class VoidApp(App[None]):
         )
 
     # ── the agent ──────────────────────────────────────────────────────
+
+    async def _open_agent_picker(self) -> None:
+        """`/agent` opens on the sources read again: a file added since
+        appears, one that failed to import is tried again. What cannot
+        load is on its row, with the reason."""
+        try:
+            self.agents.scan()
+        except AgentLoadError as error:
+            await self.shell.complain(f"agents: {error}")
+        self.push_screen(
+            AgentPicker(
+                self.agents.entries, self.config.agent, path=tilde(self.home / AGENTS_DIR)
+            ),
+            self._agent_picked,
+        )
+
+    async def _report_agents(self) -> None:
+        """What the scan could not load, said once the log is up."""
+        for info in self.agents.entries:
+            if info.error is not None:
+                await self.shell.complain(f"agents: {info.id} ({info.source}) — {info.error}")
 
     async def _agent_picked(self, choice: str | None) -> None:
         if choice is not None:

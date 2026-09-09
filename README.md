@@ -11,26 +11,35 @@
 
 > Session remembers · Turn runs · Model schedules · Tool asks · Human answers · Message wakes.
 
-void-agent is an agent core built on one refusal: **an agent framework is
-not a workflow engine.** No task state machine, no journal to replay, no
-resume protocol. The conversation your application already stores is the
-only durable state; a turn reads it and carries on.
+void-agent is a minimal agent core: **everything is a tool, and a session
+is a conversation.** The model schedules, tools nest as deep as you like,
+one stream carries every event, and a question for the person reaches
+them directly from wherever it arose. Nothing else stands in the way: no
+workflow engine, no journal, no relay.
 
-- **The human is in the loop by design.** The model can ask the person, and
-  a tool can insist on their signature before it does anything that cannot
-  be undone. Either question reaches the person directly, from any depth —
-  a sub-agent's, a workflow's — and the answer lands exactly where it was
-  asked. Nobody there to answer? The turn ends with the card open, and the
-  next message picks it up.
-- **Authority never rests with the model.** Which calls need a signature is
-  decided in your code, tool by tool. The model explains what it wants to
-  do; it never decides whether a side effect runs.
+- **Everything is a tool, mounted with one call.** An async function, a
+  workflow, a sub-agent, an MCP server's tools, a folder of Markdown
+  skills — and the person. A workflow is an async function that calls
+  other tools, nothing more: no steps or graph to declare, the model is
+  the scheduler. A sub-agent is a tool whose handler is another agent, so
+  tools nest as deep as you need.
+- **A question goes straight to the person.** The model can ask them; a
+  tool can insist on their signature before an irreversible step. From
+  any depth — a sub-agent's turn, a gated tool three layers down — the
+  question reaches the person directly and the answer lands where it was
+  asked; no parent relays it. Nobody there? Nothing runs: the turn ends
+  with the card open, and the next message picks it up.
+- **Permission is mechanical.** Which calls need a signature is decided in
+  your code, tool by tool. The model explains what it wants to do; it
+  never decides whether a side effect runs.
 - **One stream, any chat UI.** Every step, tool call, plan and question goes
-  out in the Vercel AI SDK UI message protocol, so a compatible front end
-  shows live progress and approval cards with no custom wiring.
-- **Capabilities from anywhere, mounted one way.** Async functions,
-  workflows, sub-agents, an MCP server's tools, and folders of Markdown
-  skills all attach with the same call.
+  out as Vercel AI SDK UI messages, so a compatible front end shows live
+  progress and approval cards with no custom wiring.
+- **A session is a conversation, nothing more.** No durable task, no
+  execution to recover, no state beside the messages: to continue, send
+  the next message and the turn reads the session and carries on. The
+  session has two projections — the parts a UI renders, and the context
+  the model reads.
 - **Small enough to read in an afternoon.** About 2,000 lines of Python,
   one concept per file, pydantic as the only dependency. Anthropic,
   OpenAI-compatible endpoints and MCP are optional extras, and their SDKs

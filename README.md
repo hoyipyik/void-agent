@@ -91,6 +91,7 @@ Three agents come built in; `/agent` switches:
   whatever `~/.void/mcp.json` names, and whatever skills `~/.void/skills`
   holds. Every mounted tool is a switch in `/mcp` and `/skill`: on, signed,
   or off. The toolbox starts `signed`: each call shows you a card first.
+  Edit `mcp.json` while the shell runs: the next `/mcp` picks it up.
 - **weather** — below.
 - **dummy-weather** — the weather agent replayed on a scripted model and
   canned data: no key, no network, the whole protocol on screen.

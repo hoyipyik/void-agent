@@ -11,9 +11,10 @@ the `Shell` (`cli/shell.py`), the one screen the app shows; the modals
 open above it.
 
 Mounting is the process's act, choosing the session's: the servers
-`mcp.json` names start here, once, and a server switched in `/mcp`
-starts or stops at once; a tool's or a skill's mark lands on the next
-turn, when the registry builds the agent again from the config.
+`mcp.json` names start here, once — and again when `/mcp` opens on a
+file that changed since — and a server switched in `/mcp` starts or
+stops at once; a tool's or a skill's mark lands on the next turn, when
+the registry builds the agent again from the config.
 """
 
 from __future__ import annotations
@@ -184,6 +185,7 @@ class VoidApp(App[None]):
         screen = self.screen if self.is_running else None
         if isinstance(screen, McpPicker):
             screen.reload(
+                self.servers,
                 self.config,
                 self.bench.catalog,
                 self.bench.failures,
@@ -211,15 +213,43 @@ class VoidApp(App[None]):
             self.call_later(self.shell.complain, f"skills: {error}")
         return tuple(self.agents.skills)
 
-    async def _remount(self) -> None:
-        """Stop what is running and start what is wanted. A person can reach
-        /mcp before the servers finished starting: let that mount land
-        first, or the two race for the same bench. Awaiting here holds this
-        handler, not the loop."""
-        if self._mounting is not None and not self._mounting.done():
-            await self._mounting
-        await self.bench.close()
-        await self._mount_mcp(quiet=True)
+    def _restart(self) -> asyncio.Task[None]:
+        """Stop what is running and start what is wanted, on a task of its
+        own, so a board can open over it and fill in when it lands. A person
+        can reach /mcp before the servers finished starting: that mount
+        lands first, or the two race for the same bench."""
+        previous = self._mounting
+
+        async def restart() -> None:
+            if previous is not None and not previous.done():
+                await previous
+            await self.bench.close()
+            await self._mount_mcp(quiet=True)
+
+        self._mounting = asyncio.create_task(restart(), name="mcp-restart")
+        return self._mounting
+
+    async def _open_mcp_board(self) -> None:
+        """`/mcp`, over the file re-read as the board opens: an entry added
+        or changed since the servers were mounted restarts them, and the
+        board fills in when that lands. An unchanged file restarts nothing
+        — looking is not a switch."""
+        servers = self._specs()
+        changed = servers != self.servers
+        if changed:
+            await self.shell.note("mcp: mcp.json changed — restarting its servers…")
+            self._restart()
+        self.push_screen(
+            McpPicker(
+                servers,
+                self.bench.catalog,
+                self.config,
+                failures=self.bench.failures,
+                path=tilde(self._mcp_file),
+                mounting=changed or self.bench.mounting,
+            ),
+            self._mcp_marked,
+        )
 
     # ── the commands that are the process's ────────────────────────────
 
@@ -249,17 +279,7 @@ class VoidApp(App[None]):
                 else:
                     await self._switch_agent(name)
             case McpPick():
-                self.push_screen(
-                    McpPicker(
-                        self.servers,
-                        self.bench.catalog,
-                        self.config,
-                        failures=self.bench.failures,
-                        path=tilde(self._mcp_file),
-                        mounting=self.bench.mounting,
-                    ),
-                    self._mcp_marked,
-                )
+                await self._open_mcp_board()
             case SkillPick():
                 self.push_screen(
                     SkillPicker(self._read_shelf(), self.config, path=tilde(self._skills_dir)),
@@ -423,7 +443,8 @@ class VoidApp(App[None]):
         the bench holds afterwards."""
         message.stop()
         self._set_config(self.config.with_server_state(message.name, _switch(message.state)))
-        await self._remount()
+        # Awaiting here holds this handler, not the loop.
+        await self._restart()
 
     async def _mcp_marked(self, states: dict[str, str] | None) -> None:
         """What `/mcp` marked, kept. A tool's mark lands on the next turn —

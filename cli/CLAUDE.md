@@ -36,7 +36,8 @@ one way too.
   the store, the registry, the bench and the shelf, Ollama, the OS
   clipboard — and the flows that write the config: `/model`, `/key`,
   `/agent`, `/mcp`, `/skill`, each a modal; the servers start when the
-  shell says it is up (`Shell.Ready`) · `shell.py` `Shell`, the one
+  shell says it is up (`Shell.Ready`), and again when `/mcp` opens on
+  an `mcp.json` that changed since · `shell.py` `Shell`, the one
   screen the app shows: what is the session's — the log, the composer
   and its menu, the rewind, the attachments, the turn and its questions,
   and the session's own commands (`/session`, `/new`, `/clear`,
@@ -192,6 +193,12 @@ one way too.
   the board back what the bench holds, so its tools appear or vanish
   under the cursor. A board open while the first mount is still running
   fills in by itself when it lands.
+- `/mcp` opens on `mcp.json` re-read. An entry added or changed since
+  the servers were mounted restarts them, the board filling in when
+  that lands; an unchanged file restarts nothing — looking is not a
+  switch. The board heads with the servers up out of those named, the
+  tools on out of those it lists, and the signed and off counts,
+  recomputed on every switch.
 - There is no panel of the agent's own tools: those are its builder's
   business, and mixing them in would blur who decided what.
 - Copy lands on the OS clipboard. A drag selects in the log (Textual's

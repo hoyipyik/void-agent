@@ -319,6 +319,7 @@ class VoidApp(App[None]):
             skills_dir=tilde(self._skills_dir),
             session_title=session.title,
             messages=len(session.messages),
+            tally=session.tally(),
             home=tilde(self.home),
         )
 

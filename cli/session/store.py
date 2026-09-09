@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from void_agent import Message, Role, context_content, parts_text
+from void_agent import NO_USAGE, Message, Role, Usage, context_content, parts_text, usages
 
 CONTEXT_MESSAGES = 20
 TITLE_MAX = 120
@@ -43,6 +43,18 @@ class SessionSummary:
     id: str
     title: str
     updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class Tally:
+    """What the session has cost so far, read off its `data-usage` parts:
+    the sum over every round-trip (`total`, the bill), how many there were
+    (`steps`), and the latest one's prompt (`context`) — the size of what
+    the model read last, which is what the next turn grows from."""
+
+    total: Usage = NO_USAGE
+    steps: int = 0
+    context: int = 0
 
 
 @dataclass(slots=True)
@@ -96,6 +108,16 @@ class Session:
 
     def summary(self) -> SessionSummary:
         return SessionSummary(self.id, self.title, self.updated_at)
+
+    def tally(self) -> Tally:
+        """The session's account, over every message it kept."""
+        reported = [usage for message in self.messages for usage in usages(message.parts)]
+        total = NO_USAGE
+        for usage in reported:
+            total = total + usage
+        return Tally(
+            total=total, steps=len(reported), context=reported[-1].input if reported else 0
+        )
 
     def to_json(self) -> dict[str, Any]:
         return {

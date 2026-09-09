@@ -9,9 +9,10 @@ from textual.widgets import Static
 
 from cli.commands import COMMANDS
 from cli.config import Config
-from cli.labels import model_label
+from cli.labels import model_label, tokens
 from cli.providers.catalog import KEYED, PROVIDER_LABELS, ModelInfo
 from cli.providers.ollama import alias
+from cli.session import Tally
 
 
 class Panel(Static):
@@ -71,11 +72,12 @@ def status_panel(
     skills_dir: str,
     session_title: str,
     messages: int,
+    tally: Tally,
     home: str,
 ) -> Panel:
     """`/status`: the model, the keys, the local server, what is mounted,
-    the session, where things are kept. `installed` is None when Ollama
-    did not answer."""
+    the session and what it has cost, where things are kept. `installed`
+    is None when Ollama did not answer."""
     full = config.model if config.provider == "ollama" else ""
     lines: list[Content] = [
         Content.from_markup(
@@ -123,5 +125,23 @@ def status_panel(
             count=messages,
         )
     )
+    lines.append(tokens_line(tally))
     lines.append(Content.from_markup("  [$text-muted]home[/]      $home", home=home))
     return Panel("status", Content("\n").join(lines))
+
+
+def tokens_line(tally: Tally) -> Content:
+    """The session's account in one line: the bill so far, and the
+    context the model read last — or that nothing was counted."""
+    if not tally.steps:
+        return Content.from_markup("  [$text-muted]tokens    nothing counted yet[/]")
+    total = tally.total
+    bill = f"{tokens(total.input)} in · {tokens(total.output)} out"
+    if total.cache_read:
+        bill += f" · {tokens(total.cache_read)} cached"
+    return Content.from_markup(
+        "  [$text-muted]tokens[/]    $bill [$text-muted]· $steps · context $context[/]",
+        bill=bill,
+        steps=f"{tally.steps} step{'s' if tally.steps != 1 else ''}",
+        context=tokens(tally.context),
+    )

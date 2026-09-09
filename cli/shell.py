@@ -85,6 +85,8 @@ if TYPE_CHECKING:
 
 PROMPT = "Ask void anything…  (/ for commands, @path to attach)"
 ANSWER_PROMPT = "Answer the question above…"
+# While a turn runs the box is closed, and says so.
+BUSY_PROMPT = "Waiting for the reply…  (esc stops the turn)"
 # How long a word flashed in the status line — "copied" — stays.
 FLASH_SECONDS = 2.0
 
@@ -452,7 +454,7 @@ class Shell(Screen[None]):
         composer = self.composer
         composer.disabled = waiting
         answering = not waiting and self.desk.answering is not None
-        composer.placeholder = ANSWER_PROMPT if answering else PROMPT
+        composer.placeholder = ANSWER_PROMPT if answering else BUSY_PROMPT if waiting else PROMPT
         self._prompt.set_sign("[$warning]?[/]" if answering else "❯")  # noqa: RUF001
         self._prompt.set_class(waiting, "-busy")
         if not waiting:

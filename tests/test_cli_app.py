@@ -941,6 +941,41 @@ async def test_a_selection_in_the_log_is_copied_to_the_os_clipboard(tmp_path: Pa
         assert app.shell.session.history()[-2] == Message.user("and on")
 
 
+async def test_the_welcome_box_follows_the_model_and_the_agent(tmp_path: Path) -> None:
+    """The header says which agent and model the next turn runs on — as
+    the config stands now, not as it stood when the box was drawn."""
+    app = make_app(tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        welcome = app.query_one(Welcome)
+        assert model_label(CONFIGURED) in welcome.details
+        was = app.agent_label()
+        assert was in welcome.details
+        await pilot.press(*"/model claude-sonnet-5", "enter")
+        await pilot.pause()
+        assert "claude-sonnet-5" in welcome.details
+        await pilot.press(*"/agent weather", "enter")
+        await pilot.pause()
+        assert app.config.agent == "weather" and app.agent_label() != was
+        assert app.agent_label() in welcome.details
+
+
+async def test_the_welcome_box_drops_its_key_warning_once_a_key_is_saved(tmp_path: Path) -> None:
+    app = make_app(tmp_path, config=Config())
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        welcome = app.query_one(Welcome)
+        assert "no API key yet" in welcome.details
+        assert isinstance(app.screen, KeyPrompt)
+        await pilot.press("enter")  # OpenAI, the first row
+        await pilot.pause()
+        app.screen.query_one("#key", Input).value = "sk-typed"
+        await pilot.press("enter")
+        await pilot.pause()
+        assert "no API key yet" not in welcome.details
+        assert "OpenAI" in welcome.details
+
+
 async def test_a_resumed_session_keeps_its_header_too(tmp_path: Path) -> None:
     app = make_app(tmp_path)
     async with app.run_test() as pilot:

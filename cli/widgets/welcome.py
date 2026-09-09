@@ -1,6 +1,8 @@
 """What an empty session shows: the logo (VoidAgent, figlet's slant
-face), the ways in, the model. The transcript's header, drawn once at the
-top of the log and left there — replayed above a resumed session too."""
+face), the ways in, the agent and the model. The transcript's header,
+drawn once at the top of the log and left there — replayed above a
+resumed session too — its lines kept current: `/model` and `/agent`
+change what the next turn runs on, and the box says so."""
 
 from __future__ import annotations
 
@@ -61,6 +63,13 @@ class Welcome(Vertical):
 
     def __init__(self, config: Config, home: Path, agent: str) -> None:
         super().__init__()
+        self._home = home
+        lines = self._lines(config, agent)
+        # What the box says under the logo, in plain words.
+        self.details = lines.plain
+        self._detail = Static(lines, classes="lines")
+
+    def _lines(self, config: Config, agent: str) -> Content:
         lines = [
             "  [$primary]/help[/] commands   [$primary]/model[/] model   [$primary]/agent[/] agent"
             "   [$primary]/session[/] resume",
@@ -72,10 +81,17 @@ class Welcome(Vertical):
         if not config.configured():
             lines.append("")
             lines.append("  [$warning]no API key yet[/] — [$primary]/key[/] adds one")
-        self._lines = Content.from_markup(
-            "\n".join(lines), agent=agent, model=model_label(config), home=tilde(home)
+        return Content.from_markup(
+            "\n".join(lines), agent=agent, model=model_label(config), home=tilde(self._home)
         )
+
+    def show(self, config: Config, agent: str) -> None:
+        """The agent and the model as they stand now; the key warning
+        goes once a key is saved."""
+        lines = self._lines(config, agent)
+        self.details = lines.plain
+        self._detail.update(lines)
 
     def compose(self) -> ComposeResult:
         yield Static(logo(), classes="logo")
-        yield Static(self._lines, classes="lines")
+        yield self._detail

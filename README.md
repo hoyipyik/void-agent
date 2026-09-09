@@ -275,10 +275,16 @@ rewinds to an earlier message to edit and resend. Esc stops a turn.
 
 ### Your own agents
 
-Agents are files. Put a module under `~/.void/agents`, or in any folder
-you name with `--workspace`, and `/agent` lists it: the file's stem is its
-name, the first line of its docstring the blurb. Nothing is registered —
-the folder is the registry, and every agent in it can call every other by
+Agents are files, and the one thing a file must have is a `build_agent`:
+a function that takes the model and returns the `Agent`. That function is
+the registration — there is no list to add to, the folder is the
+registry. It is a function rather than an `Agent` at the top of the
+module because the model is the session's choice (`/model`), handed in
+fresh at every turn: an `Agent(...)` written at module level has no model
+to be built on, and is not listed. Put such a module under
+`~/.void/agents`, or in any folder you name with `--workspace`, and
+`/agent` lists it: the file's stem is its name, the first line of its
+docstring the blurb, and every agent in the pool can call every other by
 name.
 
 ```python

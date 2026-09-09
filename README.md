@@ -210,7 +210,7 @@ line and for using an agent day to day. `void` is the same runtime in a
 terminal: one binary per platform, nothing to install — the UI, the
 agents, the MCP SDK and ripgrep inside.
 
-![the weather agent answering a two-city question](screenshots/weather.svg)
+![a signature card holding a gated call](screenshots/approval.svg)
 
 Four ways in.
 
@@ -268,8 +268,6 @@ Three agents come built in; `/agent` switches:
 Your own agent mounts with `--agent module:function`, any
 `build_agent(llm) -> Agent`.
 
-![a signature card holding a gated call](screenshots/approval.svg)
-
 `/` opens the command menu: `/model`, `/key`, `/agent`, `/mcp`, `/skill`,
 `/session`, `/new`, `/clear`, `/attach <path>`, `/paste`, `/status`,
 `/help`, `/quit`. Drop a file into the composer or write `@path` to attach
@@ -293,6 +291,8 @@ schedules them, so the questions can be as awkward as you like:
   `daily` and `history` side by side, the difference computed in the answer.
 - *What's it like in Springfield?* — `geocode` returns several; the agent
   asks you which, on a card, and carries on with your answer.
+
+![the weather agent answering a two-city question](screenshots/weather.svg)
 
 The plan updates as it goes; when a result surprises it, it reflects
 before continuing. `cli/agents/weather.py` is the whole thing: the tools, the

@@ -202,12 +202,17 @@ one way too.
 - There is no panel of the agent's own tools: those are its builder's
   business, and mixing them in would blur who decided what.
 - Copy lands on the OS clipboard. A drag selects in the log (Textual's
-  own selection); ctrl+c / ⌘C copies through `App.copy_to_clipboard`,
-  which the app overrides to write the OS clipboard (`Clipboard.write`)
-  as well as Textual's OSC 52 escape — macOS Terminal ignores the escape
-  and iTerm2 refuses it by default, `pbcopy` and its kin do not ask. The
-  log takes no focus: a click or a drag on it leaves the keys where they
-  were, on the composer or an open card.
+  own selection); ctrl+c copies through `App.copy_to_clipboard`, which
+  the app overrides to write the OS clipboard (`Clipboard.write`) as
+  well as Textual's OSC 52 escape — macOS Terminal ignores the escape
+  and iTerm2 refuses it by default, `pbcopy` and its kin do not ask. ⌘C
+  never reaches the app on most terminals — the terminal keeps it for
+  its own (empty) selection — so the help says ctrl+c, and ⇧ + drag
+  (⌥ in iTerm2) for the terminal's own selection, which ⌘C copies as
+  usual. Mouse reporting is what costs the native selection, and it is
+  kept: clicks fold chips, the wheel scrolls the log. The log takes no
+  focus: a click or a drag on it leaves the keys where they were, on the
+  composer or an open card.
 - Colours come from `theme.py` by name; no widget carries a hex. The theme
   is an ANSI one: the background and the text are the terminal's own, so
   nothing paints a surface or tints with an alpha — a highlight is solid

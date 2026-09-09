@@ -50,8 +50,10 @@ def help_panel() -> Panel:
         " all after, Esc cancels\n"
         "  [$primary]⌘V / ctrl+v[/]         attach the clipboard's image or file "
         "(text and paths paste as usual)\n"
-        "  [$primary]⌘C / ctrl+c[/]         copy the selection "
+        "  [$primary]ctrl+c[/]              copy the selection "
         "[$text-muted](drag over the log to select)[/]\n"
+        "  [$primary]⇧ + drag[/]            select in the terminal itself, then ⌘C as usual "
+        "[$text-muted](⌥ in iTerm2)[/]\n"
         "  [$primary]Esc[/]                 close the menu · stop the running turn\n"
         "  [$primary]ctrl+q[/]              leave"
     )

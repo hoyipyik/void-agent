@@ -288,7 +288,7 @@ async def test_an_openai_id_switches_the_provider_and_asks_for_its_key(tmp_path:
 
 async def test_slash_agent_lists_the_mounted_agents_and_refuses_any_other(tmp_path: Path) -> None:
     registry = Registry()
-    registry.mount("cli.agents:chat")  # what `--agent module:function` mounts at start
+    registry.mount("cli.agents.universal:chat")  # what `--agent module:function` mounts at start
     app = VoidApp(
         registry.build_agent,
         store=SessionStore(tmp_path / "sessions"),
@@ -304,11 +304,11 @@ async def test_slash_agent_lists_the_mounted_agents_and_refuses_any_other(tmp_pa
         await pilot.press("4")  # universal, weather, dummy-weather, then the mounted one
         await pilot.pause()
         assert not isinstance(app.screen, AgentPicker)
-        assert app.config.agent == "cli.agents:chat"
+        assert app.config.agent == "cli.agents.universal:chat"
         await pilot.press(*"/agent no.such:thing", "enter")  # not mounted: refused at once
         await pilot.pause()
         assert app.query(".error")
-        assert app.config.agent == "cli.agents:chat"
+        assert app.config.agent == "cli.agents.universal:chat"
         await pilot.press(*"/agent universal", "enter")
         await pilot.pause()
         assert app.config.agent == "universal"

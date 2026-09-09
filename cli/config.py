@@ -54,7 +54,7 @@ class Config:
     # installed, so there is no default — choosing one is what configures it.
     ollama_host: str = DEFAULT_HOST
     ollama_model: str = ""
-    # The agent the CLI runs, by its name in the registry (`cli/agents.py`).
+    # The agent the CLI runs, by its name in the registry (`cli/agents/`).
     agent: str = DEFAULT_AGENT
     # What `/mcp` and `/skill` marked: the servers never started, the tools
     # kept from the model, the ones that must be signed, and the skills

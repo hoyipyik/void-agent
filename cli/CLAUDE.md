@@ -57,10 +57,10 @@ one way too.
   the agent), `~/.void/config.json` fills in (written by the key prompt,
   `/key`, `/model`, `/agent`, `/mcp` and `/skill`, mode 0600) · `llm.py`
   `resolve_llm`, a `Config` as an `Llm` — the one file in the CLI that
-  imports a provider's SDK, lazily · `agents.py` which agent runs: a
-  `Registry` of `universal` (the default — the model, a plan,
+  imports a provider's SDK, lazily · `agents/` which agent runs: `registry.py` a
+  `Registry` of `universal` (`universal.py`: the default — the model, a plan,
   reflection, `ask_user`, and whatever MCP is mounted), `weather` and
-  `dummy-weather` (`weather.py`: Open-Meteo behind five thin tools — geocode,
+  `dummy-weather` (`weather.py`, the example agent: Open-Meteo behind five thin tools — geocode,
   current, hourly, daily, history — the model as the scheduler; `dummy`
   is the same agent on a `ScriptedLlm` and a canned `httpx` transport, so
   the whole protocol runs with no key and no network) plus what
@@ -137,7 +137,7 @@ one way too.
   a remote mode over a server's SSE would be the same renderer behind a
   different transport.
 - The CLI is a client, not an agent. The agent is any `build_agent(llm)`
-  in the registry (`cli/agents.py`); the default is `universal`.
+  in the registry (`cli/agents/registry.py`); the default is `universal`.
   Mounting is a process-level act (`--agent module:function`
   at start, imported then); choosing is a session-level act (`/agent`,
   among the mounted only — a name that is not there is refused, never

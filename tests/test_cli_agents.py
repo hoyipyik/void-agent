@@ -7,6 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import cli.agents
+import cli.agents.universal
 import pytest
 from cli.agents import CATALOG, NO_PROVIDER, AgentLoadError, Registry, load_builder
 from cli.app import VoidApp
@@ -29,7 +30,7 @@ def test_every_catalogue_entry_builds_an_agent() -> None:
 
 def test_a_spec_names_a_module_and_a_function() -> None:
     assert load_builder("cli.agents") == cli.agents.build_agent  # the default function
-    assert load_builder("cli.agents:universal") is cli.agents.universal
+    assert load_builder("cli.agents.universal") is cli.agents.universal.build_agent
     with pytest.raises(AgentLoadError, match="cannot import"):
         load_builder("no.such.module")
     with pytest.raises(AgentLoadError, match="no callable"):
@@ -38,12 +39,12 @@ def test_a_spec_names_a_module_and_a_function() -> None:
 
 def test_mounting_imports_at_once_and_lists_the_agent() -> None:
     registry = Registry()
-    info = registry.mount("cli.agents:chat")
-    assert info.id == info.name == info.spec == "cli.agents:chat"
+    info = registry.mount("cli.agents.universal:chat")
+    assert info.id == info.name == info.spec == "cli.agents.universal:chat"
     assert registry.describe(info.id) is info
     assert registry.entries[-1] is info
-    assert registry.builder_for(info.id) is cli.agents.chat
-    assert registry.label("cli.agents:chat") == "cli.agents:chat"
+    assert registry.builder_for(info.id) is cli.agents.universal.chat
+    assert registry.label("cli.agents.universal:chat") == "cli.agents.universal:chat"
     assert registry.label("universal") == "Universal"
     with pytest.raises(AgentLoadError, match="cannot import"):
         registry.mount("no.such:thing")
@@ -54,10 +55,12 @@ def test_startup_takes_the_request_else_the_saved_choice_else_the_default() -> N
     registry = Registry()
     assert registry.startup(None, "universal") == "universal"
     assert registry.startup(None, "gone") == "universal"  # a stale saved choice
-    mounted = registry.startup("cli.agents:chat", "universal")
-    assert mounted == "cli.agents:chat"
+    mounted = registry.startup("cli.agents.universal:chat", "universal")
+    assert mounted == "cli.agents.universal:chat"
     assert registry.describe(mounted) is not None
-    assert registry.startup(None, "cli.agents:chat") == "cli.agents:chat"  # saved, still here
+    assert (
+        registry.startup(None, "cli.agents.universal:chat") == "cli.agents.universal:chat"
+    )  # saved, still here
     with pytest.raises(AgentLoadError):
         registry.startup("no.such:thing", "universal")
 
@@ -126,9 +129,9 @@ async def test_every_agent_gets_the_same_mcp_tools_not_just_the_universal_one() 
     bench = Bench(opener=lambda spec: McpServer(client=FakeMcp([descriptor("write_file")])))
     await bench.open((ServerSpec(name="files", command="npx"),))
     registry = Registry(bench=bench)
-    registry.mount("cli.agents:chat")  # what `--agent` would have mounted at start
+    registry.mount("cli.agents.universal:chat")  # what `--agent` would have mounted at start
     try:
-        agent = registry.build_agent(Config(agent="cli.agents:chat"))
+        agent = registry.build_agent(Config(agent="cli.agents.universal:chat"))
         assert "files__write_file" in agent.tool_names
         assert "update_plan" not in agent.tool_names  # chat's own shape, plus the mounted
     finally:

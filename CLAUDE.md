@@ -36,7 +36,7 @@ cli/                     the terminal UI, in-process (repo-only, not
                          server (read, search, edit, run over one root),
                          and whatever `~/.void/mcp.json` and
                          `~/.void/skills` mounted, marked in `/mcp` and
-                         `/skill`; `weather` (cli/weather.py: Open-Meteo
+                         `/skill`; `weather` (cli/agents/weather.py: Open-Meteo
                          behind five thin tools, the model as the
                          scheduler) and `dummy-weather` (the same on a
                          scripted model and canned data);

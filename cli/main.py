@@ -9,7 +9,7 @@ client uses), `skills/` (a folder per skill) and `sessions/`. The
 environment's ANTHROPIC_API_KEY / OPENAI_API_KEY win over the file. The
 agent to start on is `--agent`, else `VOID_AGENT`, else the saved choice:
 a name from the registry
-(`cli/agents.py`), or a `module:function` mounted right here — one that
+(`cli/agents/registry.py`), or a `module:function` mounted right here — one that
 cannot load is an error at the door. The packed binary carries the
 registry's modules (`make cli-build` names them as hidden imports) and
 looks for a mounted module in the working directory.

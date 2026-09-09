@@ -8,6 +8,8 @@ with the keys; any other `data-*` → `DataCard`, folded; `TurnView`
 walks the array and mounts them, live and replayed alike. Around the
 log: the welcome box, the command menu, the prompt frame and its
 composer, the status line, and the panels `/help` and `/status` leave.
+The look is `theme.py`: the one Textual theme, every colour a widget
+shows quoted from it by name.
 """
 
 from cli.widgets.ask import AskCard
@@ -19,10 +21,12 @@ from cli.widgets.menu import CommandMenu
 from cli.widgets.panels import Panel, help_panel
 from cli.widgets.prompt import PromptFrame, StatusBar
 from cli.widgets.reply import Reply, Said, UserBubble
+from cli.widgets.theme import VOID_THEME
 from cli.widgets.turn import TurnView
 from cli.widgets.welcome import Welcome
 
 __all__ = [
+    "VOID_THEME",
     "AskCard",
     "AttachmentBar",
     "CommandMenu",

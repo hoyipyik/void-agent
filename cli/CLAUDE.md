@@ -26,8 +26,8 @@ module of ours.
 
 Three layers, the dependencies pointing down. `main → app → shell →
 widgets / screens → the rest`; nothing below `shell` imports `app` or
-`shell`, and nothing outside `widgets/`, `screens/`, `shell.py`,
-`app.py` and `theme.py` imports Textual. `providers ← config ← llm` is
+`shell`, and nothing outside `widgets/`, `screens/`, `shell.py`
+and `app.py` imports Textual. `providers ← config ← llm` is
 one way too.
 
 - `main.py` the entry point (`VOID_HOME` moves the state dir;
@@ -42,9 +42,7 @@ one way too.
   and its menu, the rewind, the attachments, the turn and its questions,
   and the session's own commands (`/session`, `/new`, `/clear`,
   `/attach`, `/paste`, `/detach`, `/status`, `/help`, `/quit`); the rest
-  go up to the app; `app.shell` is how the tests reach it · `labels.py` `tilde`, `model_label`, `bar_label` · `theme.py`
-  the one Textual theme; every colour is quoted from it (`[$primary]`,
-  `$success`) · `commands.py` slash commands as `Spec`s: `matching` for
+  go up to the app; `app.shell` is how the tests reach it · `labels.py` `tilde`, `model_label`, `bar_label` · `commands.py` slash commands as `Spec`s: `matching` for
   the menu, `complete`, `parse` · `config.py` the provider, the agent
   and the marks: environment first (`ANTHROPIC_API_KEY` /
   `OPENAI_API_KEY` / `OLLAMA_MODEL` + `OLLAMA_HOST`; `VOID_AGENT` names
@@ -118,7 +116,9 @@ one way too.
   (sign + composer), the status line (a spinner and the turn's activity
   — `activity(event)` — the model on the right) · `attachbar.py` the
   attachments waiting for the next message, the list theirs ·
-  `panels.py` `Panel`, the `/help` and `/status` panels · `composer.py`
+  `panels.py` `Panel`, the `/help` and `/status` panels · `theme.py` the
+  one Textual theme; every colour is quoted from it (`[$primary]`,
+  `$success`) · `composer.py`
   the multi-line box: Enter sends; shift / alt / ctrl / cmd + Enter
   (Kitty-protocol terminals), `\` + Enter or a pasted newline adds a
   line; a pasted path attaches; ctrl+v / cmd+v ask for the OS clipboard;
@@ -213,7 +213,7 @@ one way too.
   kept: clicks fold chips, the wheel scrolls the log. The log takes no
   focus: a click or a drag on it leaves the keys where they were, on the
   composer or an open card.
-- Colours come from `theme.py` by name; no widget carries a hex. The theme
+- Colours come from `widgets/theme.py` by name; no widget carries a hex. The theme
   is an ANSI one: the background and the text are the terminal's own, so
   nothing paints a surface or tints with an alpha — a highlight is solid
   `$primary` with `$block-cursor-foreground`, a quiet border `$border-blurred`.

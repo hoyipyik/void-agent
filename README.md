@@ -63,11 +63,17 @@ git clone https://github.com/hoyipyik/void-agent && cd void-agent
 pip install ".[openai,anthropic,mcp]"       # or `uv sync` to hack on it, then `make check`
 ```
 
-The checkout also builds the two wheels above, one command each:
+The checkout also builds the two wheels above. The pure-Python one, with
+the sdist:
 
 ```bash
-uv build            # the pure-Python wheel (and the sdist), into dist/
-make compile        # the native wheel for this OS, CPU and Python, into dist/; PY=3.13 picks the interpreter
+uv build                    # dist/
+```
+
+or the native one, for this OS, CPU and Python:
+
+```bash
+make compile                # dist/; PY=3.13 picks the interpreter
 ```
 
 `make compile-verify` is `make compile` followed by the whole test suite

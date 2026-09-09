@@ -9,7 +9,7 @@
                              /____/
 ```
 
-> Session remembers · Turn runs · Model schedules · Tool asks · Human answers · Message wakes.
+> Session remembers · Turn runs · Model schedules · Tool executes & asks · Human answers · Message wakes.
 
 void-agent is a minimal agent core: **everything is a tool, and a session
 is a conversation.** The model schedules, tools nest as deep as you like,

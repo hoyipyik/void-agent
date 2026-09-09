@@ -70,6 +70,8 @@ class StatusBar(Horizontal):
             Content.from_markup("[$text-muted]$hint[/]", hint=IDLE_HINT), classes="left"
         )
         self._right = Static("", classes="right")
+        # What the left side says now, in plain words.
+        self.line = IDLE_HINT
         self._activity: str | None = None
         self._frame = 0
         self._timer: Timer | None = None
@@ -94,16 +96,19 @@ class StatusBar(Horizontal):
         self._activity = None
         if self._timer is not None:
             self._timer.pause()
+        self.line = IDLE_HINT
         self._left.update(Content.from_markup("[$text-muted]$hint[/]", hint=IDLE_HINT))
 
     def show_hint(self, text: str) -> None:
         """A hint in the idle line's place — while a mode lasts."""
+        self.line = text
         self._left.update(Content.from_markup("[$primary]$hint[/]", hint=text))
 
     def _tick(self) -> None:
         if self._activity is None:
             return
         self._frame = (self._frame + 1) % len(SPINNER)
+        self.line = self._activity
         self._left.update(
             Content.from_markup(
                 "[$primary]$frame[/] $activity  [$text-muted](esc to interrupt)[/]",

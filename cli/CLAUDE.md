@@ -70,7 +70,9 @@ one way too.
   server store's shape) and their model-facing projection ·
   `attachments.py` a file as a `file` part (images, PDFs, text; limits;
   `paths_in`, `mentions`) · `clipboard.py` the OS clipboard through
-  osascript / wl-paste / xclip / PowerShell, the runner a seam.
+  osascript / wl-paste / xclip / PowerShell, read for a copied file or
+  image and written on copy (pbcopy / wl-copy / xclip / PowerShell), the
+  runner and the writer seams.
 - `providers/` what `/model` lists: `catalog.py` the provider names and
   the cloud catalogue (name, blurb, the recommended default per keyed
   provider; `provider_of` reads a bare id) · `ollama.py` the local
@@ -184,6 +186,13 @@ one way too.
   fills in by itself when it lands.
 - There is no panel of the agent's own tools: those are its builder's
   business, and mixing them in would blur who decided what.
+- Copy lands on the OS clipboard. A drag selects in the log (Textual's
+  own selection); ctrl+c / ⌘C copies through `App.copy_to_clipboard`,
+  which the app overrides to write the OS clipboard (`Clipboard.write`)
+  as well as Textual's OSC 52 escape — macOS Terminal ignores the escape
+  and iTerm2 refuses it by default, `pbcopy` and its kin do not ask. The
+  log takes no focus: a click or a drag on it leaves the keys where they
+  were, on the composer or an open card.
 - Colours come from `theme.py` by name; no widget carries a hex. The theme
   is an ANSI one: the background and the text are the terminal's own, so
   nothing paints a surface or tints with an alpha — a highlight is solid

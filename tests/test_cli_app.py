@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 from cli.agents import Registry
 from cli.app import BuildAgent, VoidApp
+from cli.clipboard import Clipboard
 from cli.config import Config
 from cli.labels import model_label
 from cli.providers.ollama import Ollama
@@ -898,6 +899,46 @@ async def test_a_board_open_while_the_servers_start_fills_in_by_itself(
         assert "1 tool" in str(picker.choices.get_option("server:toolbox").prompt)
         await pilot.press("escape")
         await pilot.pause()
+
+
+async def test_a_selection_in_the_log_is_copied_to_the_os_clipboard(tmp_path: Path) -> None:
+    """A drag selects in the log; ctrl+c copies. Textual's own copy is an
+    OSC 52 escape, which macOS Terminal ignores and iTerm2 refuses by
+    default, so the app writes the OS clipboard too. The log takes no
+    focus: after the drag the composer still has the keys."""
+    written: list[tuple[str, str]] = []
+
+    def record(command: list[str], data: bytes) -> bool:
+        written.append((command[0], data.decode("utf-8")))
+        return True
+
+    app = VoidApp(
+        lambda _config: scripted("hello from void, worth copying"),
+        store=SessionStore(tmp_path / "sessions"),
+        config=CONFIGURED,
+        config_file=tmp_path / "config.json",
+        clipboard=Clipboard(writer=record, platform="darwin"),
+        ollama=ollama_down(),
+    )
+    async with app.run_test(size=(90, 30)) as pilot:
+        await pilot.press(*"hi", "enter")
+        await finished(app)
+        await pilot.pause()
+        reply = app.shell.replies()[0]
+        await pilot.mouse_down(reply, offset=(0, 0))
+        await pilot.hover(reply, offset=(12, 0))
+        await pilot.mouse_up(reply, offset=(12, 0))
+        await pilot.pause()
+        assert app.focused is app.shell.composer
+        await pilot.press("ctrl+c")
+        await finished(app)  # the write is a worker: a subprocess, off the loop
+        await pilot.pause()
+        assert written == [("pbcopy", "hello from vo")]
+        assert app.shell.status.line == "copied"
+        await pilot.press(*"and on", "enter")  # the keys never left the composer
+        await finished(app)
+        await pilot.pause()
+        assert app.shell.session.history()[-2] == Message.user("and on")
 
 
 async def test_a_resumed_session_keeps_its_header_too(tmp_path: Path) -> None:

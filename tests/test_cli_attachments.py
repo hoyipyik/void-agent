@@ -11,7 +11,7 @@ from pathlib import Path
 
 from cli.app import VoidApp
 from cli.attachments import Attachment, mentions, paths_in, read_attachment
-from cli.clipboard import Clipboard
+from cli.clipboard import Clipboard, Writer
 from cli.config import Config
 from cli.session import SessionStore
 from textual import events
@@ -139,6 +139,39 @@ def test_the_linux_clipboard_reads_uri_lists_and_pngs(tmp_path: Path) -> None:
     clipboard = Clipboard(runner=fake_runner({"image/png": PNG_BYTES}), platform="linux")
     read = clipboard.read()
     assert isinstance(read, list) and read[0].data == PNG_BYTES
+
+
+def fake_writer(taken: list[tuple[str, str]], missing: frozenset[str] = frozenset()) -> Writer:
+    """A writer that records what each tool was handed; a tool named in
+    `missing` is not installed."""
+
+    def write(command: list[str], data: bytes) -> bool:
+        if command[0] in missing:
+            return False
+        taken.append((command[0], data.decode("utf-8")))
+        return True
+
+    return write
+
+
+def test_copying_writes_the_platforms_own_clipboard_tool() -> None:
+    """Textual's copy is an OSC 52 escape, which macOS Terminal ignores and
+    iTerm2 refuses by default: the text goes to pbcopy and its kin too."""
+    taken: list[tuple[str, str]] = []
+    assert Clipboard(writer=fake_writer(taken), platform="darwin").write("héllo")
+    assert taken == [("pbcopy", "héllo")]
+    taken.clear()
+    assert Clipboard(writer=fake_writer(taken), platform="linux").write("one")
+    assert taken == [("wl-copy", "one")]
+    taken.clear()
+    without_wayland = fake_writer(taken, missing=frozenset({"wl-copy"}))
+    assert Clipboard(writer=without_wayland, platform="linux").write("two")
+    assert taken == [("xclip", "two")]
+    taken.clear()
+    assert Clipboard(writer=fake_writer(taken), platform="win32").write("three")
+    assert taken[0][0] == "powershell" and taken[0][1] == "three"
+    nothing = fake_writer(taken, missing=frozenset({"wl-copy", "xclip"}))
+    assert not Clipboard(writer=nothing, platform="linux").write("lost")
 
 
 # ── in the app ────────────────────────────────────────────────────────────

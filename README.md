@@ -56,21 +56,23 @@ compiled, one per platform.
 pip install "./void_agent-0.1.0-py3-none-any.whl[openai,anthropic,mcp]"
 ```
 
-Or build one from a checkout — `scripts/compile.py` is the guide to the
-native one:
-
-```bash
-uv build                    # dist/: the pure-Python wheel and the sdist
-make compile                # dist/: the native wheel for this OS, CPU and Python; PY=3.13 picks the interpreter
-make compile-verify         # the same, then the whole test suite against it in a fresh venv
-```
-
 **From source.** Clone and install the checkout:
 
 ```bash
 git clone https://github.com/hoyipyik/void-agent && cd void-agent
 pip install ".[openai,anthropic,mcp]"       # or `uv sync` to hack on it, then `make check`
 ```
+
+The checkout also builds the two wheels above, one command each:
+
+```bash
+uv build            # the pure-Python wheel (and the sdist), into dist/
+make compile        # the native wheel for this OS, CPU and Python, into dist/; PY=3.13 picks the interpreter
+```
+
+`make compile-verify` is `make compile` followed by the whole test suite
+against the installed wheel in a fresh venv; `scripts/compile.py` is behind
+both.
 
 ### Usage
 

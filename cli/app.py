@@ -351,6 +351,23 @@ class VoidApp(App[None]):
         self._set_config(self.config.with_agent(name))
         await self.shell.note(f"agent: {self.agent_label()}")
 
+    # ── the clipboard ──────────────────────────────────────────────────
+
+    def copy_to_clipboard(self, text: str) -> None:
+        """What ctrl+c copies — the log's selection, the composer's — lands
+        on the OS clipboard too. Textual's own copy is an OSC 52 escape,
+        which macOS Terminal ignores and iTerm2 refuses unless told
+        otherwise; `pbcopy` and its kin do not ask. The write runs a
+        subprocess, so it goes off the loop."""
+        super().copy_to_clipboard(text)
+        self.run_worker(self._copy_out(text), group="copy", exclusive=True)
+
+    async def _copy_out(self, text: str) -> None:
+        landed = await asyncio.to_thread(self.os_clipboard.write, text)
+        self.shell.flash(
+            "copied" if landed else "copied to the terminal only — no wl-copy or xclip found"
+        )
+
     # ── the marks: /mcp and /skill ─────────────────────────────────────
 
     async def on_mcp_picker_server_toggled(self, message: McpPicker.ServerToggled) -> None:

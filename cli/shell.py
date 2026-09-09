@@ -85,6 +85,8 @@ if TYPE_CHECKING:
 
 PROMPT = "Ask void anything…  (/ for commands, @path to attach)"
 ANSWER_PROMPT = "Answer the question above…"
+# How long a word flashed in the status line — "copied" — stays.
+FLASH_SECONDS = 2.0
 
 
 class Shell(Screen[None]):
@@ -120,7 +122,10 @@ class Shell(Screen[None]):
         return cast("VoidApp", self.app)  # pyright: ignore[reportUnknownMemberType]
 
     def compose(self) -> ComposeResult:
-        yield VerticalScroll(id="log")
+        # The log takes no focus: a click or a drag on it — to fold a chip,
+        # to select — leaves the keys where they were, on the composer or
+        # an open card.
+        yield VerticalScroll(id="log", can_focus=False)
         yield self.attachments
         yield self._menu
         yield self._prompt
@@ -138,6 +143,19 @@ class Shell(Screen[None]):
         the config stands now."""
         self._status.show_model(bar_label(self.void.config, self.void.agent_label()))
 
+    def flash(self, text: str) -> None:
+        """A word in the status line for a moment — "copied" — then what
+        was there: the rewind's hint, or the idle one. While a turn runs
+        the spinner keeps the line."""
+        self._status.show_hint(text)
+        self.set_timer(FLASH_SECONDS, self._unflash)
+
+    def _unflash(self) -> None:
+        if self._rewind is not None:
+            self._status.show_hint(REWIND_HINT)
+        elif self._inflight is None:
+            self._status.idle()
+
     # ── what the tests and the person see ──────────────────────────────
 
     def replies(self) -> list[Reply]:
@@ -150,6 +168,10 @@ class Shell(Screen[None]):
     @property
     def menu(self) -> CommandMenu:
         return self._menu
+
+    @property
+    def status(self) -> StatusBar:
+        return self._status
 
     async def append(self, widget: Static | TurnView | Welcome) -> None:
         await self.query_one("#log", VerticalScroll).mount(widget)

@@ -50,7 +50,8 @@ def help_panel() -> Panel:
         " all after, Esc cancels\n"
         "  [$primary]⌘V / ctrl+v[/]         attach the clipboard's image or file "
         "(text and paths paste as usual)\n"
-        "  [$primary]⌘C / ctrl+c[/]         copy the selection\n"
+        "  [$primary]⌘C / ctrl+c[/]         copy the selection "
+        "[$text-muted](drag over the log to select)[/]\n"
         "  [$primary]Esc[/]                 close the menu · stop the running turn\n"
         "  [$primary]ctrl+q[/]              leave"
     )

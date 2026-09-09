@@ -265,13 +265,35 @@ Three agents come built in; `/agent` switches:
 - **weather** — below.
 - **dummy_weather** — the weather agent replayed on a scripted model and
   canned data: no key, no network, the whole protocol on screen.
+- **Yours** — a file in a folder; below.
 
-Your own agents are files. A module under `~/.void/agents`, or in a folder
-named with `--workspace`, with a `build_agent(llm) -> Agent` is an agent:
-the file's stem is its name in `/agent`, the docstring its blurb. A module
-without one is a helper, imported by its siblings as `from . import x`.
-A builder that takes a second argument is handed the pool — every agent
-loaded, from every folder — so agents call each other by name:
+`/` opens the command menu: `/model`, `/key`, `/agent`, `/mcp`, `/skill`,
+`/session`, `/new`, `/clear`, `/attach <path>`, `/paste`, `/status`,
+`/help`, `/quit`. Drop a file into the composer or write `@path` to attach
+it; ⌘V / ctrl+v pastes an image from the clipboard. ↑ in an empty composer
+rewinds to an earlier message to edit and resend. Esc stops a turn.
+
+### Your own agents
+
+Agents are files. Put a module under `~/.void/agents`, or in any folder
+you name with `--workspace`, and `/agent` lists it: the file's stem is its
+name, the first line of its docstring the blurb. Nothing is registered —
+the folder is the registry, and every agent in it can call every other by
+name.
+
+```python
+# ~/.void/agents/writer.py
+"""writes a short piece from the notes it is given"""
+
+from void_agent import Agent, Llm
+
+
+def build_agent(llm: Llm) -> Agent:
+    # A sub-agent takes typed input — a string here — as its opening message.
+    return Agent(llm, "writer", "writes a short piece from notes", input_type=str).with_system(
+        "Write it up in three paragraphs, plainly."
+    )
+```
 
 ```python
 # ~/.void/agents/researcher.py
@@ -288,18 +310,41 @@ def build_agent(llm: Llm, agents) -> Agent:
     )
 ```
 
-`agents("writer")` is the writer beside the caller if there is one, else
-the pool's by name; a name taken by an earlier folder shows as `writer-1`,
-both rows with their source. `agents.mounted` is every tool the process
-mounted, for a sub-agent that should have them. A cycle, a missing name or
-a file that will not import is on its row in red before you pick it; a
-new file shows on the next `/agent`, an edit needs a restart.
+```text
+Select an agent
+●  1. universal      built-in        the model, a plan, a question — and whatever MCP you mounted
+   2. dummy_weather  built-in        the weather agent replayed on a scripted model and canned data — no key, no network
+   3. weather        built-in        Open-Meteo: forecasts, hours, history — ask it anything about the weather
+   4. researcher     ~/.void/agents  finds sources and hands them to the writer
+   5. writer         ~/.void/agents  writes a short piece from the notes it is given
+```
 
-`/` opens the command menu: `/model`, `/key`, `/agent`, `/mcp`, `/skill`,
-`/session`, `/new`, `/clear`, `/attach <path>`, `/paste`, `/status`,
-`/help`, `/quit`. Drop a file into the composer or write `@path` to attach
-it; ⌘V / ctrl+v pastes an image from the clipboard. ↑ in an empty composer
-rewinds to an earlier message to edit and resend. Esc stops a turn.
+Pick `researcher`, ask it something, and its `writer` call renders in the
+log like any tool's: the question goes to the model, the researcher hands
+the notes over, the writer's answer comes back as the call's result. The
+rules, all of them:
+
+- **A builder that takes a second argument is handed the pool.**
+  `agents("writer")` is the writer beside the caller if there is one, else
+  the pool's by name — every agent loaded, from every folder, built on the
+  same model. `agents.mounted` is every tool the process mounted (the
+  toolbox, `mcp.json`, skills) for a sub-agent that should have them; the
+  agent you talk to gets them regardless.
+- **A module without `build_agent` is a helper**, never listed; its
+  siblings import it as `from . import helper`, a sub-folder as
+  `from .shared import tools`.
+- **A name taken by an earlier folder is suffixed, never replaced.** Two
+  `writer.py` are `writer` and `writer-1`, both rows with their source, and
+  `agents("writer-1")` reaches the second from anywhere. The built-in
+  three come first, then `~/.void/agents`, then each `--workspace` in
+  order.
+- **What cannot run is on its row, in red, before you pick it:** a file
+  that will not import, a name that is not there, a cycle (`a → b → a`).
+  Every builder runs once at scan on a scripted model, so a broken graph
+  shows at start, not on the first turn.
+- **A new file shows on the next `/agent`; an edit needs a restart.** The
+  working directory is never scanned — importing a module runs it, and
+  only a folder you named is yours.
 
 ### The weather agent
 

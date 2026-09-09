@@ -116,8 +116,9 @@ one way too.
   `Shell.refresh_label` · `menu.py` the slash-command menu (`/` opens it,
   arrows move, Tab completes, Enter runs) · `prompt.py` the prompt frame
   (sign + composer), the status line (a spinner and the turn's activity
-  — `activity(event)` — the agent, the model and the context the last
-  round-trip read on the right) · `attachbar.py` the
+  — `activity(event)` — the agent, the model, the context the last
+  round-trip read and what the session has consumed on the right) ·
+  `attachbar.py` the
   attachments waiting for the next message, the list theirs ·
   `panels.py` `Panel`, the `/help` and `/status` panels · `theme.py` the
   one Textual theme; every colour is quoted from it (`[$primary]`,
@@ -152,13 +153,17 @@ one way too.
 - The session is the state: the assistant side of `history` is
   `context_text(parts)` (the user side, `context_content` when attachments
   exist), never raw streamed text.
-- The account is read off the parts, never kept beside them. Each
-  round-trip's `data-usage` part renders as a muted `∑` line where the
-  round-trip ended — after its text, before its calls — live and
-  replayed alike; the status line's right side
-  says the context the last one read (`… · 12k ctx`), and `/status` sums
-  the session (`Session.tally`). A model that reports nothing leaves no
-  part, and nothing is estimated in its place.
+- The account is read off the parts, never kept beside them. A turn's
+  `data-usage` parts are summed into one muted `∑` trailer after
+  everything the turn produced (`∑ 3 steps · 5.4k in · 200 out`), live
+  and replayed alike — never a line per round-trip in the flow. The
+  status line's right side says the context the last round-trip read
+  and what the session has consumed, in and out together, live as each
+  reports (`… · 12k ctx · 51k consumed`; the running sum is the
+  session's fold plus the turn's events, and agrees with the fold once
+  the turn is kept); `/status` gives the split (`Session.tally`). A
+  model that reports nothing leaves no part, and nothing is estimated
+  in its place.
 - The person answers on the card. A `HumanChannel` attends the run;
   the card's first row / second row become the gate's boolean HERE, at
   the edge, never in core. The model's questions are answered in words:

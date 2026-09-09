@@ -145,14 +145,17 @@ class Shell(Screen[None]):
         line's right side — with the context the session's last round-trip
         read — and the welcome box at the top of the log."""
         config, agent = self.void.config, self.void.agent_label()
-        self._show_context(self.session.tally().context)
+        tally = self.session.tally()
+        self._show_account(tally.context, tally.consumed)
         for welcome in self.query(Welcome):
             welcome.show(config, agent)
 
-    def _show_context(self, context: int) -> None:
-        """The status line's right side: the agent, the model, and the
-        context the model read last, live as each round-trip reports."""
-        self._status.show_model(bar_label(self.void.config, self.void.agent_label(), context))
+    def _show_account(self, context: int, consumed: int) -> None:
+        """The status line's right side: the agent, the model, the context
+        the model read last and what the session has consumed, live as
+        each round-trip reports."""
+        config, agent = self.void.config, self.void.agent_label()
+        self._status.show_model(bar_label(config, agent, context, consumed))
 
     def flash(self, text: str) -> None:
         """A word in the status line for a moment — "copied" — then what
@@ -506,13 +509,18 @@ class Shell(Screen[None]):
         app = self.void
         turn = Turn(app.build_agent(app.config), self.session.history())
         self._inflight = turn
+        # What the session had spent before this turn; each round-trip adds
+        # to it live, and the fold over the parts agrees once the turn is kept.
+        spent = self.session.tally().total
 
         async def on_event(event: AgentEvent, parts: list[dict[str, Any]]) -> None:
+            nonlocal spent
             said = activity(event)
             if said is not None:
                 self._status.busy(said)
             if isinstance(event, UsageReported):
-                self._show_context(event.usage.input)
+                spent = spent + event.usage
+                self._show_account(event.usage.input, spent.input + spent.output)
             await view.apply(event, parts)
 
         try:

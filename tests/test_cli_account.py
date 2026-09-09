@@ -46,6 +46,9 @@ def test_the_bar_names_the_context_once_a_round_trip_said() -> None:
     assert bar_label(CONFIGURED, "universal", 12_345) == (
         "universal · Anthropic · claude-opus-5 · 12k ctx"
     )
+    assert bar_label(CONFIGURED, "universal", 12_345, 51_234) == (
+        "universal · Anthropic · claude-opus-5 · 12k ctx · 51k consumed"
+    )
 
 
 def test_the_session_tallies_every_round_trip_it_kept(tmp_path: Path) -> None:
@@ -58,6 +61,7 @@ def test_the_session_tallies_every_round_trip_it_kept(tmp_path: Path) -> None:
     assert session.tally() == Tally(
         total=Usage(input=390, output=21, cache_read=100), steps=3, context=160
     )
+    assert session.tally().consumed == 411
     session.truncate(2)
     assert session.tally() == Tally(total=Usage(input=100, output=5), steps=1, context=100)
 

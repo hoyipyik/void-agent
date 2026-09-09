@@ -16,7 +16,7 @@ from cli.app import VoidApp
 from cli.config import Config
 from cli.session import SessionStore
 from cli.shell import BUSY_PROMPT, PROMPT
-from cli.widgets import AskCard, Composer, DataCard, PlanCard, ReflectionCard, ToolChip
+from cli.widgets import AskCard, Composer, DataCard, PlanCard, ReflectionCard, ToolChip, TurnView
 from pydantic import BaseModel, ConfigDict
 from textual.pilot import Pilot
 from textual.widgets import OptionList, Static
@@ -425,7 +425,7 @@ def usage_lines(app: VoidApp) -> list[str]:
     return [str(line.render()) for line in app.query(".usage")]
 
 
-async def test_each_round_trips_cost_shows_under_it_and_the_bar_says_the_context(
+async def test_a_turns_cost_trails_it_and_the_bar_says_the_context_and_the_consumed(
     tmp_path: Path,
 ) -> None:
     script: list[ScriptedStep] = [
@@ -437,8 +437,17 @@ async def test_each_round_trips_cost_shows_under_it_and_the_bar_says_the_context
         await pilot.press(*"hi", "enter")
         await finished(app)
         await pilot.pause()
-        assert usage_lines(app) == ["∑ 1.2k in · 45 out", "∑ 1.4k in · 12 out · 1.2k cached"]
-        assert app.shell.status.label.endswith(" · 1.4k ctx")
+        # One trailer for the turn, after everything it produced.
+        assert usage_lines(app) == ["∑ 2 steps · 2.6k in · 57 out · 1.2k cached"]
+        assert [type(child).__name__ for child in app.query_one(TurnView).children][-1] == "Static"
+        assert app.shell.status.label.endswith(" · 1.4k ctx · 2.7k consumed")
+        # The next turn (the same script again: the agent is rebuilt every
+        # turn) keeps counting from where the session stood.
+        await pilot.press(*"and now?", "enter")
+        await finished(app)
+        await pilot.pause()
+        assert usage_lines(app) == ["∑ 2 steps · 2.6k in · 57 out · 1.2k cached"] * 2
+        assert app.shell.status.label.endswith(" · 1.4k ctx · 5.3k consumed")
         # Where the round-trip ended: after the text it streamed, before
         # the calls it made.
         assert [part["type"] for part in stored_parts(app)] == [
@@ -460,10 +469,12 @@ async def test_a_reopened_session_shows_its_cost_lines_and_context_again(tmp_pat
         await pilot.pause()
         assert usage_lines(app) == []
         assert " ctx" not in app.shell.status.label
+        assert " consumed" not in app.shell.status.label
+        assert " consumed" not in app.shell.status.label
         await app.shell.reopen(session_id)
         await pilot.pause()
-        assert usage_lines(app) == ["∑ 800 in · 3 out"]
-        assert app.shell.status.label.endswith(" · 800 ctx")
+        assert usage_lines(app) == ["∑ 1 step · 800 in · 3 out"]
+        assert app.shell.status.label.endswith(" · 800 ctx · 803 consumed")
 
 
 async def test_a_model_that_reports_nothing_leaves_no_cost_line(tmp_path: Path) -> None:
@@ -474,3 +485,4 @@ async def test_a_model_that_reports_nothing_leaves_no_cost_line(tmp_path: Path) 
         await pilot.pause()
         assert usage_lines(app) == []
         assert " ctx" not in app.shell.status.label
+        assert " consumed" not in app.shell.status.label

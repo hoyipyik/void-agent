@@ -15,9 +15,9 @@ result under `⎿`); `data-plan` → a plan card where the update happened —
 one per update, so the latest state is at the reading edge and the
 earlier ones stay as the record of how it moved; `data-reflection` → a
 card; `data-ask` → the question card, its options a list answered with
-the keys; `data-usage` → a muted `∑` line where the round-trip ended
-(after the text it streamed, before the calls it made), what it cost;
-any other `data-*` → a folded card; `data-step` stays silent;
+the keys; `data-usage` → nothing in the flow: the turn's are summed
+into one muted `∑` trailer after everything, when the turn is over
+(`finish`); any other `data-*` → a folded card; `data-step` stays silent;
 `data-error` and `data-cancelled` → a line. Which key means "yes" is
 decided on the card — a signature card answers with a boolean, every
 other card in words — never in core.
@@ -39,7 +39,7 @@ from cli.widgets.cards import PlanCard, ReflectionCard
 from cli.widgets.fold import DataCard, ToolChip
 from cli.widgets.format import data_of
 from cli.widgets.reply import Reply, Said
-from void_agent import AgentEvent, TextDelta, TextEnd, TextStart, usage_of
+from void_agent import NO_USAGE, AgentEvent, TextDelta, TextEnd, TextStart, usage_of
 
 
 class TurnView(Vertical):
@@ -57,6 +57,10 @@ class TurnView(Vertical):
         self._seen: dict[int, Widget | None] = {}
         self._asks: dict[str, AskCard] = {}
         self._streams: dict[str, MarkdownStream] = {}
+        # The turn's account so far: every `data-usage` part seen, summed,
+        # said once in a trailer when the turn is over.
+        self._spent = NO_USAGE
+        self._round_trips = 0
 
     async def sync(self, parts: list[dict[str, Any]]) -> None:
         for part in parts:
@@ -99,12 +103,10 @@ class TurnView(Vertical):
                 return None
             case "data-usage":
                 usage = usage_of(part)
-                if usage is None:
-                    return None
-                widget = Static(
-                    Content.from_markup("[$text-muted]∑ $text[/]", text=usage_label(usage)),
-                    classes="usage",
-                )
+                if usage is not None:
+                    self._spent = self._spent + usage
+                    self._round_trips += 1
+                return None
             case "data-cancelled":
                 widget = Static(Content.from_markup("[$text-muted]⏹ stopped[/]"), classes="note")
             case "data-error":
@@ -141,12 +143,25 @@ class TurnView(Vertical):
                 pass
 
     async def finish(self) -> None:
-        """The turn is over: flush the streams, close the open cards."""
+        """The turn is over: flush the streams, close the open cards, and
+        say what the turn cost — one muted trailer, after everything."""
         for stream in self._streams.values():
             await stream.stop()
         self._streams.clear()
         for card in self._asks.values():
             card.finish()
+        if self._round_trips:
+            steps = f"{self._round_trips} step{'s' if self._round_trips != 1 else ''}"
+            await self.mount(
+                Static(
+                    Content.from_markup(
+                        "[$text-muted]∑ $steps · $cost[/]",
+                        steps=steps,
+                        cost=usage_label(self._spent),
+                    ),
+                    classes="usage",
+                )
+            )
 
     def replies(self) -> list[Reply]:
         return list(self.query(Reply))

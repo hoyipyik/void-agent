@@ -117,8 +117,7 @@ one way too.
   `Shell.refresh_label` · `menu.py` the slash-command menu (`/` opens it,
   arrows move, Tab completes, Enter runs) · `prompt.py` the prompt frame
   (sign + composer), the status line (a spinner, the turn's activity —
-  `activity(event)` — and how long this step has run, restarted at each
-  `data-step`; the agent, the model, the context the last round-trip
+  `activity(event)` — and how long the turn has run; the agent, the model, the context the last round-trip
   read and what the session has consumed on the right) ·
   `attachbar.py` the
   attachments waiting for the next message, the list theirs ·
@@ -161,7 +160,7 @@ one way too.
   the gutter like every line's, in `$accent`), live and replayed alike —
   never a line per round-trip in the flow. The time is the runner's
   `data-elapsed` marker, written like `data-cancelled`, so a replay says
-  it too; the status line's stopwatch is the current step's, live only. The
+  it too; the status line's stopwatch is the turn's, live only. The
   status line's right side says the context the last round-trip read
   and what the session has consumed, in and out together, live as each
   reports (`… · 12k ctx · 51k consumed`; the running sum is the

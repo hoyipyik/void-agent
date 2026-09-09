@@ -1,6 +1,6 @@
 """The prompt frame — a sign and the composer in one rounded box — and
 the status line under it, which spins while a turn runs and counts the
-seconds the current step has taken."""
+seconds the turn has taken."""
 
 from __future__ import annotations
 
@@ -60,8 +60,8 @@ class PromptFrame(Horizontal):
 
 class StatusBar(Horizontal):
     """One line under the prompt: a hint — or, while a turn runs, a
-    spinner, what the turn is doing and how long this step has taken —
-    and the model on the right."""
+    spinner, what the turn is doing and how long it has run — and the
+    model on the right."""
 
     DEFAULT_CSS = """
     StatusBar { height: 1; margin: 0 2 1 2; color: $text-muted; }
@@ -78,8 +78,8 @@ class StatusBar(Horizontal):
         # What each side says now, in plain words.
         self.line = IDLE_HINT
         self.label = ""
-        # The stopwatch: when the current step began, and the whole
-        # seconds it has run — 0 while nothing runs.
+        # The stopwatch: when the turn began (the first `busy`), and the
+        # whole seconds it has run — 0 while nothing runs.
         self._since: float | None = None
         self.elapsed = 0
         self._activity: str | None = None
@@ -104,11 +104,6 @@ class StatusBar(Horizontal):
         if self._timer is not None:
             self._timer.resume()
         self._tick()
-
-    def restart(self) -> None:
-        """A new step began: the stopwatch starts over."""
-        self._since = time.monotonic()
-        self.elapsed = 0
 
     def idle(self) -> None:
         self._activity = None

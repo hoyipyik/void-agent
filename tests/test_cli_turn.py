@@ -14,6 +14,7 @@ from typing import Any
 from cli.app import VoidApp
 from cli.config import Config
 from cli.session import SessionStore
+from cli.shell import BUSY_PROMPT, PROMPT
 from cli.widgets import AskCard, Composer, DataCard, PlanCard, ReflectionCard, ToolChip
 from pydantic import BaseModel, ConfigDict
 from textual.pilot import Pilot
@@ -365,6 +366,24 @@ async def test_a_choice_card_holds_the_keys_and_other_opens_the_composer(tmp_pat
         await pilot.pause()
         assert app.query_one(AskCard).answered == "green"
         assert [reply.source for reply in app.shell.replies()] == ["green it is"]
+
+
+async def test_while_a_turn_runs_the_composer_says_it_is_waiting(tmp_path: Path) -> None:
+    """The box is closed while the model works — and says so, rather than
+    still inviting a question it cannot take."""
+    app = app_with(tmp_path, [call("forever", {}), say("never")], forever)
+    async with app.run_test() as pilot:
+        composer = app.query_one("#composer", Composer)
+        assert composer.placeholder == PROMPT
+        await pilot.press(*"go", "enter")
+        await until(pilot, lambda: bool(app.query(ToolChip)))
+        assert composer.disabled
+        assert composer.placeholder == BUSY_PROMPT
+        await pilot.press("escape")
+        await finished(app)
+        await pilot.pause()
+        assert not composer.disabled
+        assert composer.placeholder == PROMPT
 
 
 async def test_escape_stops_the_turn_and_marks_it_cancelled(tmp_path: Path) -> None:

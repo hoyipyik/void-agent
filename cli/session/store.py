@@ -101,15 +101,18 @@ class Session:
     def user_indexes(self) -> list[int]:
         return [i for i, message in enumerate(self.messages) if message.role == "user"]
 
-    def history(self, limit: int = CONTEXT_MESSAGES) -> list[Message]:
+    def history(
+        self, limit: int = CONTEXT_MESSAGES, *, tool_output_limit: int | None = None
+    ) -> list[Message]:
         """What the next turn's model reads: the context tail, each message
         projected through `context_content` — tool results, asks, answers,
         and the user's attachments all speak. A message with nothing to say
-        is left out."""
+        is left out. `tool_output_limit` caps one tool result, in
+        characters (`Config.tool_output_limit`); None keeps it whole."""
         return [
             Message(Role.parse_lossy(message.role), content)
             for message in self.messages[-limit:]
-            if (content := context_content(message.parts))
+            if (content := context_content(message.parts, tool_output_limit=tool_output_limit))
         ]
 
     def summary(self) -> SessionSummary:

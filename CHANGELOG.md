@@ -12,7 +12,9 @@ Everything — the framework has not been released yet.
   Vercel-AI-SDK-compatible event stream, and `context_text` semantic resume.
 - The model-facing projections keep a tool's output whole: `context_text`
   and `context_content` take `tool_output_limit=` for an application that
-  wants a cap and cut the line there; core sets none.
+  wants a cap and cut the line there; core sets none. The CLI sets one:
+  `context_tool_output_limit` in `~/.void/config.json`, 8,000 characters
+  by default, 0 for none — an MCP server can hand back megabytes.
 - The human as a channel: `agent.run(..., human=…)` makes an `Attendant`
   ambient for the whole tree; `ask_user` from any depth and a tool's
   `approval` gate put their question to it through the stream (`AskIssued`)

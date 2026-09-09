@@ -25,6 +25,7 @@ from void_agent.core.events import (
     ToolInputStart,
     ToolOutputAvailable,
     ToolOutputError,
+    UsageReported,
     to_wire,
 )
 
@@ -80,7 +81,14 @@ class PartsAccumulator:
                 part["state"] = "output-error"
             # A data event's wire frame IS its part: `{"type": "data-<kind>",
             # "data": …}` on the stream and in storage alike.
-            case PlanUpdated() | ReflectionMade() | AskIssued() | AskAnswered() | Progress():
+            case (
+                UsageReported()
+                | PlanUpdated()
+                | ReflectionMade()
+                | AskIssued()
+                | AskAnswered()
+                | Progress()
+            ):
                 self._parts.append(to_wire(event))
             case AskDropped(ask_id):
                 # Not a part of its own: the card it refers to is marked, so

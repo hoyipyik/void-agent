@@ -15,7 +15,9 @@ result under `⎿`); `data-plan` → a plan card where the update happened —
 one per update, so the latest state is at the reading edge and the
 earlier ones stay as the record of how it moved; `data-reflection` → a
 card; `data-ask` → the question card, its options a list answered with
-the keys; any other `data-*` → a folded card; `data-step` stays silent;
+the keys; `data-usage` → a muted `∑` line where the round-trip ended
+(after the text it streamed, before the calls it made), what it cost;
+any other `data-*` → a folded card; `data-step` stays silent;
 `data-error` and `data-cancelled` → a line. Which key means "yes" is
 decided on the card — a signature card answers with a boolean, every
 other card in words — never in core.
@@ -31,19 +33,23 @@ from textual.widget import Widget
 from textual.widgets import Markdown, Static
 from textual.widgets._markdown import MarkdownStream
 
+from cli.labels import usage_label
 from cli.widgets.ask import AskCard
 from cli.widgets.cards import PlanCard, ReflectionCard
 from cli.widgets.fold import DataCard, ToolChip
 from cli.widgets.format import data_of
 from cli.widgets.reply import Reply, Said
-from void_agent import AgentEvent, TextDelta, TextEnd, TextStart
+from void_agent import AgentEvent, TextDelta, TextEnd, TextStart, usage_of
 
 
 class TurnView(Vertical):
     """One assistant message, rendered from its parts. `live` is a turn
     running now — its cards take the keys; a replayed one only shows."""
 
-    DEFAULT_CSS = "TurnView { height: auto; }"
+    DEFAULT_CSS = """
+    TurnView { height: auto; }
+    TurnView .usage { color: $text-muted; margin: 0 0 1 0; height: auto; }
+    """
 
     def __init__(self, *, live: bool = True) -> None:
         super().__init__(classes="turn")
@@ -91,6 +97,14 @@ class TurnView(Vertical):
                 return None
             case "data-step" | "data-ask-dropped":
                 return None
+            case "data-usage":
+                usage = usage_of(part)
+                if usage is None:
+                    return None
+                widget = Static(
+                    Content.from_markup("[$text-muted]∑ $text[/]", text=usage_label(usage)),
+                    classes="usage",
+                )
             case "data-cancelled":
                 widget = Static(Content.from_markup("[$text-muted]⏹ stopped[/]"), classes="note")
             case "data-error":

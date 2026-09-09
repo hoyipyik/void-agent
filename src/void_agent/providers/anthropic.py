@@ -3,7 +3,10 @@
 Anthropic SDK types appear only here. The adapter renders the framework
 transcript to the Messages API, streams text into the run as it arrives,
 and keeps `raw` as the verbatim response content so a continuation replays
-thinking/tool blocks exactly as the API requires.
+thinking/tool blocks exactly as the API requires. The final message's
+usage becomes the step's: this API counts cached input beside
+`input_tokens`, so the three are summed into the framework's whole-prompt
+`input`.
 """
 
 from __future__ import annotations
@@ -29,6 +32,7 @@ from void_agent.core.llm import (
     UserContent,
     UserText,
 )
+from void_agent.core.usage import Usage
 
 DEFAULT_MODEL = "claude-opus-5"
 
@@ -100,6 +104,21 @@ def _assistant_content(step: ModelStep) -> Any:
     return content
 
 
+def _usage(reported: Any) -> Usage | None:
+    """The API's usage as the framework's: `input_tokens` here EXCLUDES the
+    cached input, so the whole prompt is the three added together."""
+    if reported is None:
+        return None
+    cache_read = reported.cache_read_input_tokens or 0
+    cache_write = reported.cache_creation_input_tokens or 0
+    return Usage(
+        input=reported.input_tokens + cache_read + cache_write,
+        output=reported.output_tokens,
+        cache_read=cache_read,
+        cache_write=cache_write,
+    )
+
+
 class AnthropicLlm:
     """One configured model on the Anthropic Messages API."""
 
@@ -166,4 +185,9 @@ class AnthropicLlm:
         # An empty content list must not be replayed — the API rejects an
         # empty assistant message — so an empty step carries no raw and the
         # loop's own guard keeps it out of the transcript.
-        return ModelStep(text=text, tool_calls=tool_calls, raw=message.content or None)
+        return ModelStep(
+            text=text,
+            tool_calls=tool_calls,
+            raw=message.content or None,
+            usage=_usage(message.usage),
+        )

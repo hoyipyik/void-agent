@@ -42,7 +42,7 @@ one way too.
   and its menu, the rewind, the attachments, the turn and its questions,
   and the session's own commands (`/session`, `/new`, `/clear`,
   `/attach`, `/paste`, `/detach`, `/status`, `/help`, `/quit`); the rest
-  go up to the app; `app.shell` is how the tests reach it · `labels.py` `tilde`, `model_label`, `bar_label` · `commands.py` slash commands as `Spec`s: `matching` for
+  go up to the app; `app.shell` is how the tests reach it · `labels.py` `tilde`, `model_label`, `bar_label`, `tokens`, `usage_label` · `commands.py` slash commands as `Spec`s: `matching` for
   the menu, `complete`, `parse` · `config.py` the provider, the agent
   and the marks: environment first (`ANTHROPIC_API_KEY` /
   `OPENAI_API_KEY` / `OLLAMA_MODEL` + `OLLAMA_HOST`; `VOID_AGENT` names
@@ -61,7 +61,9 @@ one way too.
   `Registry.build_agent(config)` is the per-turn factory · `session/`
   what is the session's, with no Textual in it: `store.py` sessions on
   disk (`~/.void/sessions/<id>.json`, parts verbatim, the server store's
-  shape) and their model-facing projection · `runner.py` `Turn`: one run
+  shape), their model-facing projection, and their account
+  (`Session.tally`: the sum of the `data-usage` parts, the round-trips
+  counted, the context the model read last) · `runner.py` `Turn`: one run
   as a task and the loop that drains its stream and its questions
   concurrently, folding events into parts and writing the transport
   markers (`data-cancelled`, `data-error`), tested against `ScriptedLlm`
@@ -114,7 +116,8 @@ one way too.
   `Shell.refresh_label` · `menu.py` the slash-command menu (`/` opens it,
   arrows move, Tab completes, Enter runs) · `prompt.py` the prompt frame
   (sign + composer), the status line (a spinner and the turn's activity
-  — `activity(event)` — the model on the right) · `attachbar.py` the
+  — `activity(event)` — the agent, the model and the context the last
+  round-trip read on the right) · `attachbar.py` the
   attachments waiting for the next message, the list theirs ·
   `panels.py` `Panel`, the `/help` and `/status` panels · `theme.py` the
   one Textual theme; every colour is quoted from it (`[$primary]`,
@@ -149,6 +152,13 @@ one way too.
 - The session is the state: the assistant side of `history` is
   `context_text(parts)` (the user side, `context_content` when attachments
   exist), never raw streamed text.
+- The account is read off the parts, never kept beside them. Each
+  round-trip's `data-usage` part renders as a muted `∑` line where the
+  round-trip ended — after its text, before its calls — live and
+  replayed alike; the status line's right side
+  says the context the last one read (`… · 12k ctx`), and `/status` sums
+  the session (`Session.tally`). A model that reports nothing leaves no
+  part, and nothing is estimated in its place.
 - The person answers on the card. A `HumanChannel` attends the run;
   the card's first row / second row become the gate's boolean HERE, at
   the edge, never in core. The model's questions are answered in words:

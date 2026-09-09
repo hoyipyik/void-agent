@@ -24,6 +24,8 @@ from void_agent import (
     ToolInputStart,
     ToolOutputAvailable,
     ToolOutputError,
+    Usage,
+    UsageReported,
     to_wire,
 )
 
@@ -159,7 +161,7 @@ def test_a_channel_requires_positive_capacity() -> None:
 
 
 def test_reserved_data_kinds_cannot_be_forged_as_progress() -> None:
-    for kind in ("step", "plan", "ask", "answer", "trigger", "cancelled", "error"):
+    for kind in ("step", "plan", "ask", "answer", "trigger", "cancelled", "error", "usage"):
         with pytest.raises(ValueError, match="reserved"):
             Progress(kind=kind, data={})
 
@@ -213,3 +215,15 @@ def test_activity_mode_passes_a_subtrees_questions_so_the_attendant_can_answer()
     assert admit(EventMode.ACTIVITY, AskAnswered(ask_id="a1", value="v")) is not None
     assert admit(EventMode.ACTIVITY, AskDropped(ask_id="a1")) is not None
     assert admit(EventMode.HIDDEN, issued) is None
+
+
+def test_usage_wires_as_a_data_part_with_the_cache_split() -> None:
+    assert to_wire(UsageReported(Usage(input=1200, output=45, cache_read=900, cache_write=0))) == {
+        "type": "data-usage",
+        "data": {"input": 1200, "output": 45, "cacheRead": 900, "cacheWrite": 0},
+    }
+
+
+async def test_activity_mode_passes_a_subtrees_usage_so_the_root_account_is_whole() -> None:
+    reported = UsageReported(Usage(input=10, output=2))
+    assert await _sent_through(EventMode.ACTIVITY, [StepStart(step=1), reported]) == [reported]

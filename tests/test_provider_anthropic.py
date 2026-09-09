@@ -3,11 +3,18 @@ client that replays canned stream events."""
 
 from __future__ import annotations
 
+import json
 from typing import Any, cast
 
 from anthropic import AsyncAnthropic
 from tests.provider_fakes import AnthropicClient as FakeClient
-from tests.provider_fakes import final_message, text_block, text_delta, tool_use_block
+from tests.provider_fakes import (
+    anthropic_usage,
+    final_message,
+    text_block,
+    text_delta,
+    tool_use_block,
+)
 
 from void_agent import (
     AssistantStep,
@@ -18,6 +25,7 @@ from void_agent import (
     ToolReturn,
     ToolReturns,
     ToolSpec,
+    Usage,
     UserText,
     tool_call,
 )
@@ -93,3 +101,34 @@ async def test_an_empty_step_carries_no_raw_so_it_is_never_replayed() -> None:
     step = await llm.step([UserText("hi")], [], EventSender())
     assert step.text == ""
     assert step.raw is None
+
+
+async def test_usage_sums_the_cached_input_into_the_whole_prompt() -> None:
+    reported = anthropic_usage(30, 45, cache_read=900, cache_creation=270)
+    fake = FakeClient([], final_message(text_block("ok"), usage=reported))
+    llm = AnthropicLlm(client=cast(AsyncAnthropic, fake))
+    step = await llm.step([UserText("hi")], [], EventSender())
+    assert step.usage == Usage(input=1200, output=45, cache_read=900, cache_write=270)
+
+
+async def test_usage_with_no_cache_reads_plainly() -> None:
+    fake = FakeClient([], final_message(text_block("ok"), usage=anthropic_usage(30, 45)))
+    llm = AnthropicLlm(client=cast(AsyncAnthropic, fake))
+    step = await llm.step([UserText("hi")], [], EventSender())
+    assert step.usage == Usage(input=30, output=45)
+
+
+async def test_a_message_without_usage_leaves_the_step_uncounted() -> None:
+    fake = FakeClient([], final_message(text_block("ok")))
+    llm = AnthropicLlm(client=cast(AsyncAnthropic, fake))
+    step = await llm.step([UserText("hi")], [], EventSender())
+    assert step.usage is None
+
+
+async def test_a_replayed_steps_usage_never_reaches_the_wire() -> None:
+    fake = FakeClient([], final_message(text_block("ok")))
+    llm = AnthropicLlm(client=cast(AsyncAnthropic, fake))
+    costed = ModelStep(text="prior", usage=Usage(input=1200, output=45, cache_read=900))
+    await llm.step([UserText("hi"), AssistantStep(costed)], [], EventSender())
+    wire = json.dumps(fake.requests[0])
+    assert "1200" not in wire and "900" not in wire and "usage" not in wire

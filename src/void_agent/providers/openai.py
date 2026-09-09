@@ -10,6 +10,11 @@ never starts with `{`, so when the request advertises tools, JSON-looking
 content is held back until the stream ends, when it can be compared against
 the captured tool calls: an actual echo (or an unparseable fragment of one)
 is suppressed, while any other JSON-shaped answer is still delivered.
+
+Usage is asked for (`stream_options.include_usage`) and arrives on one
+last chunk with no choices; `prompt_tokens` here already INCLUDES the
+cached input, so it is the framework's `input` as is. A compatible server
+that rejects the option can have it taken back through `extra`.
 """
 
 from __future__ import annotations
@@ -37,6 +42,23 @@ from void_agent.core.llm import (
     UserContent,
     UserText,
 )
+from void_agent.core.usage import Usage
+
+
+def _usage(reported: Any) -> Usage | None:
+    """The API's usage as the framework's. `prompt_tokens` is the whole
+    prompt; the cache split, where a server reports one, is detail."""
+    if reported is None:
+        return None
+    details = getattr(reported, "prompt_tokens_details", None)
+    cache_read = getattr(details, "cached_tokens", None) or 0
+    cache_write = getattr(details, "cache_write_tokens", None) or 0
+    return Usage(
+        input=reported.prompt_tokens,
+        output=reported.completion_tokens,
+        cache_read=cache_read,
+        cache_write=cache_write,
+    )
 
 
 def _content(part: ContentPart) -> dict[str, Any]:
@@ -145,6 +167,7 @@ class OpenAiLlm:
             "model": self._model,
             "messages": _render(transcript),
             "stream": True,
+            "stream_options": {"include_usage": True},
             **self._extra,
         }
         if tools:
@@ -166,10 +189,14 @@ class OpenAiLlm:
         captured_text = ""
         ordered_calls: list[_PartialCall] = []
         open_by_index: dict[int, _PartialCall] = {}
+        usage: Usage | None = None
 
         stream = cast("Any", await self._client.chat.completions.create(**request))
         async with stream:  # close the HTTP stream even on cancellation
             async for chunk in stream:
+                # The usage rides a final chunk of its own, with no choices.
+                if chunk.usage is not None:
+                    usage = _usage(chunk.usage)
                 if not chunk.choices:
                     continue
                 delta = chunk.choices[0].delta
@@ -219,7 +246,7 @@ class OpenAiLlm:
         if text_id is not None:
             await events.send(TextEnd(id=text_id))
 
-        return ModelStep(text=text, tool_calls=tool_calls)
+        return ModelStep(text=text, tool_calls=tool_calls, usage=usage)
 
     def _parsed_call(self, partial: _PartialCall) -> ToolCall:
         try:

@@ -27,6 +27,7 @@ from void_agent.core.events.types import (
     ToolInputStart,
     ToolOutputAvailable,
     ToolOutputError,
+    UsageReported,
 )
 from void_agent.core.events.visibility import EventCategory, EventMode, category
 from void_agent.core.events.wire import to_wire
@@ -54,6 +55,7 @@ __all__ = [
     "ToolInputStart",
     "ToolOutputAvailable",
     "ToolOutputError",
+    "UsageReported",
     "category",
     "to_wire",
 ]

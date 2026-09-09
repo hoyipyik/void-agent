@@ -43,7 +43,7 @@ from void_agent.core.agent.rules import (
 )
 from void_agent.core.ask import Ask, ask_adapter
 from void_agent.core.errors import Exhausted, Internal, RunError
-from void_agent.core.events import EventSender, StepStart
+from void_agent.core.events import EventSender, StepStart, UsageReported
 from void_agent.core.human import Unanswered, ask_words
 from void_agent.core.llm import (
     AssistantStep,
@@ -151,6 +151,10 @@ class Loop:
                 raise
             except Exception as error:
                 raise Internal("call model", error) from error
+            if step.usage is not None:
+                # The account, before the step acts: a call that crashes
+                # or a submission that ends the turn never loses it.
+                await events.send(UsageReported(step.usage))
 
             match await self._apply(step, transcript, events):
                 case Finished(answer):

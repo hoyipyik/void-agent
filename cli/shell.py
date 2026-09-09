@@ -78,7 +78,7 @@ from cli.widgets.prompt import REWIND_HINT, PromptFrame, StatusBar, activity
 from cli.widgets.reply import Reply, UserBubble
 from cli.widgets.turn import TurnView
 from cli.widgets.welcome import Welcome
-from void_agent import AgentEvent, Question, parts_text
+from void_agent import AgentEvent, Question, UsageReported, parts_text
 
 if TYPE_CHECKING:
     from cli.app import VoidApp
@@ -142,11 +142,17 @@ class Shell(Screen[None]):
 
     def refresh_label(self) -> None:
         """The agent and the model as the config stands now: the status
-        line's right side, and the welcome box at the top of the log."""
+        line's right side — with the context the session's last round-trip
+        read — and the welcome box at the top of the log."""
         config, agent = self.void.config, self.void.agent_label()
-        self._status.show_model(bar_label(config, agent))
+        self._show_context(self.session.tally().context)
         for welcome in self.query(Welcome):
             welcome.show(config, agent)
+
+    def _show_context(self, context: int) -> None:
+        """The status line's right side: the agent, the model, and the
+        context the model read last, live as each round-trip reports."""
+        self._status.show_model(bar_label(self.void.config, self.void.agent_label(), context))
 
     def flash(self, text: str) -> None:
         """A word in the status line for a moment — "copied" — then what
@@ -388,6 +394,7 @@ class Shell(Screen[None]):
                 self.store.save(self.session)
                 await self.clear_log()
                 await self.show_welcome()
+                self.refresh_label()
                 await self.note("session cleared")
             case Attach(path=path):
                 if not path:
@@ -429,6 +436,7 @@ class Shell(Screen[None]):
         self.session = session
         await self.clear_log()
         await self.show_welcome()
+        self.refresh_label()
         for message in session.messages:
             if message.role == "user":
                 await self.append(UserBubble(message.parts))
@@ -503,6 +511,8 @@ class Shell(Screen[None]):
             said = activity(event)
             if said is not None:
                 self._status.busy(said)
+            if isinstance(event, UsageReported):
+                self._show_context(event.usage.input)
             await view.apply(event, parts)
 
         try:

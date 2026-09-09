@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,7 @@ from void_agent import (
     ScriptedLlm,
     ScriptedStep,
     Tool,
+    Usage,
     call,
     say,
     tool,
@@ -417,3 +419,58 @@ async def test_a_reopened_session_replays_its_cards_from_parts(tmp_path: Path) -
         assert [chip.state for chip in app.query(ToolChip)] == ["output-available"]
         assert app.query_one(AskCard).answered is True
         assert [reply.source for reply in app.shell.replies()] == ["D-1 is ready"]
+
+
+def usage_lines(app: VoidApp) -> list[str]:
+    return [str(line.render()) for line in app.query(".usage")]
+
+
+async def test_each_round_trips_cost_shows_under_it_and_the_bar_says_the_context(
+    tmp_path: Path,
+) -> None:
+    script: list[ScriptedStep] = [
+        replace(call("weather", {"city": "tokyo"}), usage=Usage(input=1200, output=45)),
+        replace(say("clear skies"), usage=Usage(input=1400, output=12, cache_read=1200)),
+    ]
+    app = app_with(tmp_path, script, weather)
+    async with app.run_test() as pilot:
+        await pilot.press(*"hi", "enter")
+        await finished(app)
+        await pilot.pause()
+        assert usage_lines(app) == ["∑ 1.2k in · 45 out", "∑ 1.4k in · 12 out · 1.2k cached"]
+        assert app.shell.status.label.endswith(" · 1.4k ctx")
+        # Where the round-trip ended: after the text it streamed, before
+        # the calls it made.
+        assert [part["type"] for part in stored_parts(app)] == [
+            "data-usage",
+            "dynamic-tool",
+            "text",
+            "data-usage",
+        ]
+
+
+async def test_a_reopened_session_shows_its_cost_lines_and_context_again(tmp_path: Path) -> None:
+    script: list[ScriptedStep] = [replace(say("ok"), usage=Usage(input=800, output=3))]
+    app = app_with(tmp_path, script)
+    async with app.run_test() as pilot:
+        await pilot.press(*"hi", "enter")
+        await finished(app)
+        session_id = app.shell.session.id
+        await pilot.press(*"/new", "enter")
+        await pilot.pause()
+        assert usage_lines(app) == []
+        assert " ctx" not in app.shell.status.label
+        await app.shell.reopen(session_id)
+        await pilot.pause()
+        assert usage_lines(app) == ["∑ 800 in · 3 out"]
+        assert app.shell.status.label.endswith(" · 800 ctx")
+
+
+async def test_a_model_that_reports_nothing_leaves_no_cost_line(tmp_path: Path) -> None:
+    app = app_with(tmp_path, [say("ok")])
+    async with app.run_test() as pilot:
+        await pilot.press(*"hi", "enter")
+        await finished(app)
+        await pilot.pause()
+        assert usage_lines(app) == []
+        assert " ctx" not in app.shell.status.label

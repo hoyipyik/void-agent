@@ -15,6 +15,7 @@ from cli.session.store import (
     SessionStore,
     SessionSummary,
     StoredMessage,
+    Tally,
 )
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "SessionStore",
     "SessionSummary",
     "StoredMessage",
+    "Tally",
 ]

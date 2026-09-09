@@ -70,8 +70,9 @@ class StatusBar(Horizontal):
             Content.from_markup("[$text-muted]$hint[/]", hint=IDLE_HINT), classes="left"
         )
         self._right = Static("", classes="right")
-        # What the left side says now, in plain words.
+        # What each side says now, in plain words.
         self.line = IDLE_HINT
+        self.label = ""
         self._activity: str | None = None
         self._frame = 0
         self._timer: Timer | None = None
@@ -84,6 +85,7 @@ class StatusBar(Horizontal):
         self._timer = self.set_interval(0.12, self._tick, pause=True)
 
     def show_model(self, text: str) -> None:
+        self.label = text
         self._right.update(Content.from_markup("[$text-muted]$text[/]", text=text))
 
     def busy(self, activity: str) -> None:

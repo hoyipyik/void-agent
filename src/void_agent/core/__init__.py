@@ -2,8 +2,10 @@
 
 One concern per file, dependencies pointing one way:
 
-- `errors`, `messages`, `ask`   leaves: the error taxonomy, the conversation
-                                 vocabulary, a question for the person as a value
+- `errors`, `messages`, `ask`,
+  `usage`                        leaves: the error taxonomy, the conversation
+                                 vocabulary, a question for the person as a
+                                 value, what a round-trip cost as a value
 - `events/`                      the stream: types, wire, visibility, sender
 - `parts/`                       the two projections: storage parts, model context
 - `llm/`                         the model boundary and its scripted seam

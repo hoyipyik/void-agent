@@ -9,14 +9,16 @@ Every question the run tree asks — the model's `ask_user`, a gate three
 layers down — arrives as a `Question` and goes to `on_question`; its
 reply wakes the frame that asked, in place. Nothing here is Textual.
 
-The parts come back with the transport markers a server would add: a
-stop is a `data-cancelled` part, a readable failure a `data-error` one
+The parts come back with the transport markers a server would add: how
+long the turn took is a `data-elapsed` part, then a stop is a
+`data-cancelled` part, a readable failure a `data-error` one
 (`public_text` — Internal detail reaches neither the log nor the model).
 """
 
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -48,6 +50,7 @@ class Turn:
         events, self._queue = EventSender.channel(EVENT_BUFFER)
         human, self._questions = HumanChannel.channel(ASK_BUFFER, patience=None)
         self._accumulator = PartsAccumulator()
+        self._started = time.monotonic()
         self._run: asyncio.Task[Any] = asyncio.create_task(agent.run(history, events, human=human))
 
     @property
@@ -97,6 +100,10 @@ class Turn:
             accumulator.apply(event)
             await on_event(event, accumulator.into_parts())
         parts = accumulator.into_parts()
+        # How long the turn took, before the marker that says how it ended:
+        # the trailer says the time on a replay the way it did live.
+        elapsed = round(time.monotonic() - self._started, 1)
+        parts.append({"type": "data-elapsed", "data": {"seconds": elapsed}})
         try:
             await run
         except asyncio.CancelledError:

@@ -129,7 +129,8 @@ async def test_a_typed_message_streams_the_models_reply_and_persists_the_turn(
         assert [reply.source for reply in app.shell.replies()] == ["hello from void"]
         stored = app.store.load(app.shell.session.id)
     assert [m.role for m in stored.messages] == ["user", "assistant"]
-    assert stored.messages[1].parts == [{"type": "text", "text": "hello from void"}]
+    assert stored.messages[1].parts[0] == {"type": "text", "text": "hello from void"}
+    assert [part["type"] for part in stored.messages[1].parts] == ["text", "data-elapsed"]
 
 
 async def test_the_logo_heads_the_transcript_and_stays_there(tmp_path: Path) -> None:

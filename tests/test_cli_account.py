@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from cli.labels import bar_label, tokens, usage_label
+from cli.labels import bar_label, duration, tokens, usage_label
 from cli.session import SessionStore, Tally
 from cli.widgets.panels import tokens_line
 from tests.test_cli_app import CONFIGURED
@@ -82,3 +82,17 @@ def test_the_next_turns_model_reads_the_session_without_its_account(tmp_path: Pa
     session.append("assistant", [usage_part(1200, 45, cached=900), {"type": "text", "text": "a"}])
     session.append("assistant", [usage_part(1400, 12)])
     assert session.history() == [Message.user("hi"), Message.assistant("a")]
+
+
+def test_a_span_reads_the_way_people_say_it() -> None:
+    assert [duration(s) for s in (0, 0.4, 4, 12.6, 60, 72, 3600, 3720, 7199)] == [
+        "0s",
+        "0s",
+        "4s",
+        "13s",
+        "1m",
+        "1m 12s",
+        "1h",
+        "1h 2m",
+        "1h 59m",
+    ]

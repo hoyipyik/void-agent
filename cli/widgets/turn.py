@@ -17,7 +17,8 @@ earlier ones stay as the record of how it moved; `data-reflection` → a
 card; `data-ask` → the question card, its options a list answered with
 the keys; `data-usage` → nothing in the flow: the turn's are summed
 into one muted trailer after everything, when the turn is over
-(`finish`); any other `data-*` → a folded card; `data-step` stays silent;
+(`finish`), where `data-elapsed` — how long the turn took — is said
+too; any other `data-*` → a folded card; `data-step` stays silent;
 `data-error` and `data-cancelled` → a line. Which key means "yes" is
 decided on the card — a signature card answers with a boolean, every
 other card in words — never in core.
@@ -33,7 +34,7 @@ from textual.widget import Widget
 from textual.widgets import Markdown, Static
 from textual.widgets._markdown import MarkdownStream
 
-from cli.labels import usage_label
+from cli.labels import duration, usage_label
 from cli.widgets.ask import AskCard
 from cli.widgets.cards import PlanCard, ReflectionCard
 from cli.widgets.fold import DataCard, ToolChip
@@ -61,6 +62,7 @@ class TurnView(Vertical):
         # said once in a trailer when the turn is over.
         self._spent = NO_USAGE
         self._round_trips = 0
+        self._elapsed: float | None = None
 
     async def sync(self, parts: list[dict[str, Any]]) -> None:
         for part in parts:
@@ -107,6 +109,11 @@ class TurnView(Vertical):
                     self._spent = self._spent + usage
                     self._round_trips += 1
                 return None
+            case "data-elapsed":
+                seconds = data_of(part).get("seconds")
+                if isinstance(seconds, int | float):
+                    self._elapsed = float(seconds)
+                return None
             case "data-cancelled":
                 widget = Static(Content.from_markup("[$text-muted]⏹ stopped[/]"), classes="note")
             case "data-error":
@@ -152,14 +159,18 @@ class TurnView(Vertical):
         self._streams.clear()
         for card in self._asks.values():
             card.finish()
+        said: list[str] = []
         if self._round_trips:
-            steps = f"{self._round_trips} step{'s' if self._round_trips != 1 else ''}"
+            said.append(f"{self._round_trips} step{'s' if self._round_trips != 1 else ''}")
+        if self._elapsed is not None:
+            said.append(duration(self._elapsed))
+        if self._round_trips:
+            said.append(usage_label(self._spent))
+        if said:
             await self.mount(
                 Static(
                     Content.from_markup(
-                        "[$accent]⏺[/] [$text-muted]$steps · $cost[/]",
-                        steps=steps,
-                        cost=usage_label(self._spent),
+                        "[$accent]⏺[/] [$text-muted]$said[/]", said=" · ".join(said)
                     ),
                     classes="usage",
                 )

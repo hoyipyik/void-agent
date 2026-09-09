@@ -6,6 +6,7 @@ composer — and Stop."""
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from collections.abc import Callable
 from dataclasses import replace
@@ -145,7 +146,7 @@ async def test_a_tool_call_renders_as_a_chip_that_finishes_with_its_output(tmp_p
             ("weather", "output-available")
         ]
         assert [reply.source for reply in app.shell.replies()] == ["clear skies"]
-    assert [part["type"] for part in stored_parts(app)] == ["dynamic-tool", "text"]
+    assert [part["type"] for part in stored_parts(app)] == ["dynamic-tool", "text", "data-elapsed"]
 
 
 class Note(BaseModel):
@@ -272,7 +273,13 @@ async def test_a_gated_call_is_signed_on_the_card_and_runs_in_place(tmp_path: Pa
         assert card.answered is True
         assert [reply.source for reply in app.shell.replies()] == ["D-1 is ready"]
     parts = stored_parts(app)
-    assert [part["type"] for part in parts] == ["dynamic-tool", "data-ask", "data-answer", "text"]
+    assert [part["type"] for part in parts] == [
+        "dynamic-tool",
+        "data-ask",
+        "data-answer",
+        "text",
+        "data-elapsed",
+    ]
     assert parts[0]["output"] == {"draft_id": "D-1"}
     assert parts[2]["data"]["value"] is True
 
@@ -422,7 +429,8 @@ async def test_a_reopened_session_replays_its_cards_from_parts(tmp_path: Path) -
 
 
 def usage_lines(app: VoidApp) -> list[str]:
-    return [str(line.render()) for line in app.query(".usage")]
+    """The trailers, their seconds — a scripted turn's wall time — as `Ns`."""
+    return [re.sub(r"\b\d+s\b", "Ns", str(line.render())) for line in app.query(".usage")]
 
 
 async def test_a_turns_cost_trails_it_and_the_bar_says_the_context_and_the_consumed(
@@ -438,7 +446,7 @@ async def test_a_turns_cost_trails_it_and_the_bar_says_the_context_and_the_consu
         await finished(app)
         await pilot.pause()
         # One trailer for the turn, after everything it produced.
-        assert usage_lines(app) == ["⏺ 2 steps · 2.6k in · 57 out · 1.2k cached"]
+        assert usage_lines(app) == ["⏺ 2 steps · Ns · 2.6k in · 57 out · 1.2k cached"]
         assert [type(child).__name__ for child in app.query_one(TurnView).children][-1] == "Static"
         assert app.shell.status.label.endswith(" · 1.4k ctx · 2.7k consumed")
         # The next turn (the same script again: the agent is rebuilt every
@@ -446,7 +454,7 @@ async def test_a_turns_cost_trails_it_and_the_bar_says_the_context_and_the_consu
         await pilot.press(*"and now?", "enter")
         await finished(app)
         await pilot.pause()
-        assert usage_lines(app) == ["⏺ 2 steps · 2.6k in · 57 out · 1.2k cached"] * 2
+        assert usage_lines(app) == ["⏺ 2 steps · Ns · 2.6k in · 57 out · 1.2k cached"] * 2
         assert app.shell.status.label.endswith(" · 1.4k ctx · 5.3k consumed")
         # Where the round-trip ended: after the text it streamed, before
         # the calls it made.
@@ -455,6 +463,7 @@ async def test_a_turns_cost_trails_it_and_the_bar_says_the_context_and_the_consu
             "dynamic-tool",
             "text",
             "data-usage",
+            "data-elapsed",
         ]
 
 
@@ -473,16 +482,34 @@ async def test_a_reopened_session_shows_its_cost_lines_and_context_again(tmp_pat
         assert " consumed" not in app.shell.status.label
         await app.shell.reopen(session_id)
         await pilot.pause()
-        assert usage_lines(app) == ["⏺ 1 step · 800 in · 3 out"]
+        assert usage_lines(app) == ["⏺ 1 step · Ns · 800 in · 3 out"]
         assert app.shell.status.label.endswith(" · 800 ctx · 803 consumed")
 
 
-async def test_a_model_that_reports_nothing_leaves_no_cost_line(tmp_path: Path) -> None:
+async def test_a_model_that_reports_nothing_leaves_only_the_time(tmp_path: Path) -> None:
     app = app_with(tmp_path, [say("ok")])
     async with app.run_test() as pilot:
         await pilot.press(*"hi", "enter")
         await finished(app)
         await pilot.pause()
-        assert usage_lines(app) == []
+        assert usage_lines(app) == ["⏺ Ns"]
         assert " ctx" not in app.shell.status.label
         assert " consumed" not in app.shell.status.label
+
+
+async def test_the_status_line_times_the_step_and_the_trailer_the_turn(tmp_path: Path) -> None:
+    app = app_with(tmp_path, [call("forever", {})], forever)
+    async with app.run_test() as pilot:
+        await pilot.press(*"hi", "enter")
+        await until(pilot, lambda: bool(app.query(ToolChip)))
+        await asyncio.sleep(1.2)
+        await pilot.pause()
+        assert app.shell.status.elapsed >= 1
+        await pilot.press("escape")
+        await finished(app)
+        await pilot.pause()
+        assert app.shell.status.elapsed == 0
+        assert usage_lines(app) == ["⏺ Ns"]
+    parts = stored_parts(app)
+    assert parts[-2]["type"] == "data-elapsed" and parts[-2]["data"]["seconds"] >= 1
+    assert parts[-1] == {"type": "data-cancelled", "data": {}}

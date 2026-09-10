@@ -118,9 +118,7 @@ class Tool:
             if self._event_parameter is None:
                 output = await self._handler(validated)
             elif self._event_parameter.kind is inspect.Parameter.KEYWORD_ONLY:
-                # A separate mapping also avoids Cython's dynamic-key call optimization bug.
-                event_arguments = {self._event_parameter.name: events}
-                output = await self._handler(validated, **event_arguments)
+                output = await self._handler(validated, **{self._event_parameter.name: events})
             else:
                 output = await self._handler(validated, events)
         except (RunError, asyncio.CancelledError):

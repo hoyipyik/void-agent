@@ -51,17 +51,10 @@ def new_ask_id() -> str:
     return f"ask_{uuid.uuid4().hex}"
 
 
-def _method_probe() -> None:
-    """Defined only to be `type()`d: the function type this module produces."""
-
-
 class AskInput(BaseModel):
     """The model-facing schema of the synthetic `ask_user` tool."""
 
-    # pydantic skips a plain function in a class body but not the function
-    # type a compiled module produces; naming it here keeps `to_ask` a method
-    # whether this file runs from source or from a .so (see scripts/compile.py).
-    model_config = ConfigDict(extra="forbid", ignored_types=(type(_method_probe),))
+    model_config = ConfigDict(extra="forbid")
 
     kind: Literal["input", "approval", "choice"] = "input"
     question: str

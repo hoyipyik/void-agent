@@ -158,13 +158,3 @@ Failing test first; tests are named for behaviors
 
 - Commit `.env` (real keys live there; `.env.example` is the template).
 - Commit or push unless asked.
-- Inline a dynamic keyword mapping in the tool handler call: keep
-  `event_arguments = {parameter.name: events}` followed by
-  `handler(validated, **event_arguments)`. The inline dictionary triggered
-  Cython's dynamic-key call optimization failure during `compile-verify`
-  (`TypeError: sequence item 0: expected str instance, NoneType found`).
-- Use PEP 695 generics in `src/` (`def f[T]…`, `class C[T]`, `type X = …`):
-  Cython does not parse them. Write a `TypeVar` with `# noqa: UP047`
-  (`core/human/channel.py`). A pydantic model that defines methods needs
-  `ignored_types=(type(_method_probe),)` in its `model_config`
-  (`core/ask.py`): compiled methods are not `FunctionType`.

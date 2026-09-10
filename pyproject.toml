@@ -1,7 +1,7 @@
 [project]
 name = "void-agent"
 version = "0.1.0"
-description = "Write an agent the way you write code."
+description = "Write an agent the way you write code: every capability a tool, every workflow a function, every question straight to the person."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"

@@ -72,10 +72,6 @@ packages = ["src/void_agent"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
-# Tests that reach past the public API. They pass against a checkout; a
-# compiled wheel folds the internals away, so `scripts/compile.py --verify`
-# runs the suite with `-m "not internals"`.
-markers = ["internals: reaches into modules the public API does not export"]
 
 [tool.ruff]
 line-length = 99

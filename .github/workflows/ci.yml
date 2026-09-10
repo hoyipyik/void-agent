@@ -1,20 +1,18 @@
 # One workflow.
 #
-# Every push and pull request runs the gates, builds the pure-Python wheel
-# (the run's `wheel-any` artifact), compiles the native wheel once on ubuntu
-# to catch what Cython cannot parse, and packs the terminal UI once on Linux
-# and starts it, to catch what a bundler cannot see.
+# Every push and pull request runs the gates, builds the wheel (pure
+# Python, `py3-none-any`: the run's `wheel-any` artifact), and packs the
+# terminal UI once on Linux and starts it, to catch what a bundler cannot
+# see.
 #
-# A `v*` tag runs the gates, builds the pure wheel, compiles the native
-# wheel on ubuntu / macos / windows × py3.12 / 3.13 / 3.14 — each verified
-# by running the whole suite against it in a fresh venv — and packs the
-# terminal UI into one binary per platform, each started and spoken to
-# before it is kept. Once all of that is green the wheels and the binaries
-# are published as a GitHub release; the pure wheel to PyPI too, when the
-# repository variable PUBLISH_PYPI is "true" (register this workflow as a
-# trusted publisher on pypi.org first — owner hoyipyik, repository
-# void-agent, workflow ci.yml, environment pypi — then
-# `gh variable set PUBLISH_PYPI --body true`). No sdist is published.
+# A `v*` tag runs the gates, builds the wheel, and packs the terminal UI
+# into one binary per platform, each started and spoken to before it is
+# kept. Once all of that is green the wheel and the binaries are published
+# as a GitHub release; the wheel to PyPI too, when the repository variable
+# PUBLISH_PYPI is "true" (register this workflow as a trusted publisher on
+# pypi.org first — owner hoyipyik, repository void-agent, workflow ci.yml,
+# environment pypi — then `gh variable set PUBLISH_PYPI --body true`). No
+# sdist is published.
 name: ci
 
 on:
@@ -41,7 +39,7 @@ jobs:
       - run: uv run pyright
       - run: uv run pytest -q
 
-      - name: build the pure-Python wheel
+      - name: build the wheel
         run: uv build --wheel
 
       - name: it ships py.typed and installs into a fresh venv
@@ -56,19 +54,6 @@ jobs:
           name: wheel-any
           path: dist/*.whl
           if-no-files-found: error
-
-  # The push-time guard: one native build, so a construct Cython cannot parse
-  # (PEP 695 syntax, a pydantic model whose methods stop being FunctionType)
-  # fails on the push that introduced it. Tags run the full matrix below.
-  compiled-wheel:
-    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.12"
-      - run: uv run python scripts/compile.py --python 3.12 --verify
 
   # The push-time guard for the binary: pack it once on Linux, start it, and
   # speak one MCP round trip to its toolbox — the imports a bundler cannot
@@ -88,45 +73,6 @@ jobs:
         run: uv run --group build python scripts/pack.py --fetch-ripgrep
       - run: dist/void --help
       - run: uv run python scripts/smoke_toolbox.py dist/void
-
-  native-wheels:
-    name: native · ${{ matrix.os }} · py${{ matrix.python }}
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # setup-python's macOS build is universal2, so the one macOS wheel
-        # covers Intel and Apple Silicon. ubuntu-latest tags the wheel for its
-        # own glibc or newer.
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python: ["3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@v4
-
-      # The interpreter decides the wheel's floor: a uv-managed CPython on
-      # macOS is built against the current SDK and would tag the wheel for
-      # that macOS only. setup-python's builds carry conservative deployment
-      # targets, so `only-system` keeps the whole matrix on them.
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python }}
-
-      - uses: astral-sh/setup-uv@v5
-
-      # Builds the wheel, audits it (every compiled module native, stubbed,
-      # never shipped as source), then installs it in a fresh venv and runs
-      # the whole test suite against the binary with src/ off the path.
-      - name: compile and verify
-        env:
-          UV_PYTHON_PREFERENCE: only-system
-        run: uv run python scripts/compile.py --python ${{ matrix.python }} --verify
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wheel-${{ matrix.os }}-py${{ matrix.python }}
-          path: dist/*.whl
-          if-no-files-found: error
 
   # The terminal UI as one binary, one per platform: `dist/void`, packed by
   # `scripts/pack.py` (the same script `make cli-build` runs, so what CI
@@ -208,14 +154,13 @@ jobs:
 
   release:
     name: publish the GitHub release
-    needs: [python, native-wheels, binaries]
+    needs: [python, binaries]
     # `always()` so an optional binary leg that failed does not veto the
-    # release; the wheels must have passed, and the required binaries are
+    # release; the wheel must have passed, and the required binaries are
     # checked for by name below.
     if: >-
       always() && startsWith(github.ref, 'refs/tags/v')
       && needs.python.result == 'success'
-      && needs.native-wheels.result == 'success'
       && needs.binaries.result != 'cancelled' && needs.binaries.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
@@ -234,9 +179,8 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          name: wheel-any
           path: dist
-          pattern: wheel-*
-          merge-multiple: true
 
       - uses: actions/download-artifact@v4
         with:
@@ -258,7 +202,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          notes='**The framework.** `void_agent-*-py3-none-any.whl` is pure Python and installs anywhere. The `cp312` / `cp313` / `cp314` wheels carry core/ and providers/ as native extensions, one per OS and Python minor — pick the one matching your machine. Extras go in brackets: `pip install "void-agent[openai,mcp] @ <wheel url>"`.
+          notes='**The framework.** `void_agent-*-py3-none-any.whl` is pure Python and installs anywhere. Extras go in brackets: `pip install "void-agent[openai,mcp] @ <wheel url>"`.
 
           **The terminal UI.** `void-agent-cli-*` is one binary per platform — the UI, the agents, the MCP SDK and ripgrep inside. No Python, nothing to install: download the one for your machine, `chmod +x`, run it. macOS asks once the first time (right-click → Open, or `xattr -d com.apple.quarantine`).'
           # Dispatching this workflow on an existing tag (to publish to PyPI
@@ -270,7 +214,7 @@ jobs:
 
   pypi:
     name: publish to PyPI
-    needs: [python, native-wheels]
+    needs: [python]
     if: startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_PYPI == 'true'
     runs-on: ubuntu-latest
     environment: pypi

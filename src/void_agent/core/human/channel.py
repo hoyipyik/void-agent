@@ -19,8 +19,6 @@ the answer catches it by name.
 
 from __future__ import annotations
 
-from typing import TypeVar
-
 from void_agent.core.ask import Ask
 from void_agent.core.events import AskAnswered, AskDropped, AskIssued, EventSender
 from void_agent.core.human.attendant import Attendant, attendant
@@ -72,14 +70,9 @@ async def _issue(ask: Ask, events: EventSender) -> Attendant:
     return human
 
 
-# A pre-PEP 695 TypeVar on purpose: Cython (the `make compile` path,
-# scripts/compile.py) does not parse `def f[T: (...)](...)` yet.
-_Decision = TypeVar("_Decision", bool, str)
-
-
-async def _resolve(  # noqa: UP047
-    ask: Ask, events: EventSender, decision: _Decision | None
-) -> _Decision:
+async def _resolve[Decision: (bool, str)](
+    ask: Ask, events: EventSender, decision: Decision | None
+) -> Decision:
     """The answer comes back as `AskAnswered`, or `AskDropped` when the
     attendant gave up waiting."""
     if decision is None:

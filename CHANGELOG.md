@@ -46,18 +46,11 @@ Everything — the framework has not been released yet.
   canned data, no key. `--agent module:function` mounts your own. Models from
   Anthropic, OpenAI-compatible endpoints, or a local Ollama, picked in
   `/model`. `make cli` runs it; `make cli-build` packs `dist/void`.
-- Packaging: `uv build` is the wheel and the sdist. `make compile` builds a
-  wheel with `core/` and `providers/` as native extensions (Cython) —
-  `.pyi` stubs beside them, no `.py` inside, the wheel audited;
-  `make compile-verify` runs the suite against the installed wheel in a
-  fresh venv. The docstring of `scripts/compile.py` explains the path and
-  the two rules it puts on core (`TypeVar` over PEP 695, `ignored_types` on
-  a pydantic model with methods).
-- CI: one workflow. `ci.yml` runs the gates, builds the pure-Python wheel
-  and compiles the native wheel once on every push; a `v*` tag compiles it
-  on ubuntu / macos / windows × py3.12 / 3.13 / 3.14, verifies each against
-  the suite, packs the terminal UI (`void-agent-cli-<platform>`) for Linux
-  (x86_64, arm64), macOS (Intel, Apple Silicon) and Windows — each started and spoken to before it
-  is kept — and publishes every wheel and binary as a GitHub release (the
-  pure wheel to PyPI once trusted publishing is switched on). No sdist is
-  published.
+- Packaging: `uv build` is the wheel and the sdist. The wheel is pure
+  Python (`py3-none-any`): one file for every OS, CPU and Python.
+- CI: one workflow. `ci.yml` runs the gates and builds the wheel on every
+  push; a `v*` tag packs the terminal UI (`void-agent-cli-<platform>`) for
+  Linux (x86_64, arm64), macOS (Intel, Apple Silicon) and Windows — each
+  started and spoken to before it is kept — and publishes the wheel and
+  every binary as a GitHub release (the wheel to PyPI once trusted
+  publishing is switched on). No sdist is published.

@@ -46,11 +46,9 @@ in the brackets, or none for the pydantic-only core.
 pip install "void-agent[openai,anthropic,mcp] @ https://github.com/hoyipyik/void-agent/releases/download/v0.1.0/void_agent-0.1.0-py3-none-any.whl"
 ```
 
-**From a wheel.** Download one from
-[Releases](https://github.com/hoyipyik/void-agent/releases):
-`void_agent-<version>-py3-none-any.whl` runs anywhere; the `cp312` /
-`cp313` / `cp314` wheels are the same package with `core/` and `providers/`
-compiled, one per platform.
+**From a wheel.** Download `void_agent-<version>-py3-none-any.whl` from
+[Releases](https://github.com/hoyipyik/void-agent/releases): pure Python,
+one wheel for every OS, CPU and Python.
 
 ```bash
 pip install "./void_agent-0.1.0-py3-none-any.whl[openai,anthropic,mcp]"
@@ -63,22 +61,11 @@ git clone https://github.com/hoyipyik/void-agent && cd void-agent
 pip install ".[openai,anthropic,mcp]"       # or `uv sync` to hack on it, then `make check`
 ```
 
-The checkout also builds the two wheels above. The pure-Python one, with
-the sdist:
+The checkout also builds that wheel, with the sdist:
 
 ```bash
 uv build                    # dist/
 ```
-
-or the native one, for this OS, CPU and Python:
-
-```bash
-make compile                # dist/; PY=3.13 picks the interpreter
-```
-
-`make compile-verify` is `make compile` followed by the whole test suite
-against the installed wheel in a fresh venv; `scripts/compile.py` is behind
-both.
 
 ### Usage
 

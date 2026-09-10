@@ -216,7 +216,6 @@ def test_an_ask_from_a_gate_wires_the_call_and_its_resolutions_wire_as_data() ->
     }
 
 
-@pytest.mark.internals
 def test_activity_mode_passes_a_subtrees_questions_so_the_attendant_can_answer() -> None:
     from void_agent.core.events.visibility import admit
 

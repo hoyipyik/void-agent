@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup check test cli cli-build screenshots compile compile-verify
+.PHONY: help setup check test cli cli-build screenshots
 
 help: ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(firstword $(MAKEFILE_LIST)) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -33,9 +33,3 @@ cli-build: ## pack the terminal UI into one binary: dist/void
 
 screenshots: ## redraw the README's screenshots (screenshots/*.svg) on the configured provider; reads .env
 	uv run $(if $(wildcard .env),--env-file .env) python scripts/screenshots.py
-
-compile: ## wheel with core/ + providers/ as native .so (PY=3.12 picks the interpreter); see scripts/compile.py
-	uv run python scripts/compile.py $(if $(PY),--python $(PY))
-
-compile-verify: ## compile, then run the whole test suite against the installed wheel in a fresh venv
-	uv run python scripts/compile.py $(if $(PY),--python $(PY)) --verify

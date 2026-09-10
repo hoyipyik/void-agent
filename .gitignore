@@ -8,7 +8,7 @@ dist/
 .env
 uv.lock
 
-# scripts/compile.py stages its build here
+# scripts/pack.py stages its build here (build/pyinstaller)
 build/
 
 # a Claude Code session's worktrees and local settings

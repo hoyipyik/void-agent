@@ -439,7 +439,6 @@ async def test_an_empty_text_step_is_nudged_to_speak() -> None:
     assert result == Answer("actual words")
 
 
-@pytest.mark.internals
 async def test_internal_tool_failure_stays_private() -> None:
     from void_agent.core.agent.rules import INTERNAL_TOOL_ERROR
 
@@ -492,7 +491,6 @@ async def test_a_non_object_output_type_is_a_construction_error() -> None:
         make_agent(ScriptedLlm([])).output(str)
 
 
-@pytest.mark.internals
 async def test_an_empty_step_from_a_typed_agent_gets_a_truthful_nudge() -> None:
     from void_agent.core.agent.rules import MUST_SUBMIT_EMPTY_RULE
 

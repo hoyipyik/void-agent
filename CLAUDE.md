@@ -51,10 +51,8 @@ cli/                     the terminal UI, in-process (repo-only, not
                          Ollama (its OpenAI-compatible `/v1`, the installed
                          list read live); `make cli` runs it, `make
                          cli-build` packs dist/void; see cli/CLAUDE.md
-scripts/                 compile.py — the native wheel: core/ + providers/ as
-                         .so, stubs beside them (`make compile`; its
-                         docstring is the guide); pack.py — the CLI as one
-                         binary (`make cli-build`); smoke_toolbox.py — one
+scripts/                 pack.py — the CLI as one binary (`make
+                         cli-build`); smoke_toolbox.py — one
                          MCP round trip against a packed binary;
                          screenshots.py — the README's screenshots, drawn
                          by the app on a live model (a key in the
@@ -145,13 +143,10 @@ that mounts an agent is an application above it.
 
 `make check` runs them all: `uv run ruff format --check .` ·
 `uv run ruff check .` · `uv run pyright` (strict) · `uv run pytest`. All
-clean before any commit. `make compile-verify` builds the native wheel and
-runs the framework's tests against it (not the CLI's: they exercise the
-checkout's cli/, and they are POSIX-shaped — the release matrix verifies
-the wheel on Windows too): CI runs it on every push, so run it locally
-after any change Cython might not parse (see Do not). `make cli-build`
-packs the binary; CI packs it on every push too and starts it, since the
-imports a bundler cannot see break at start, not at build.
+clean before any commit. The wheel is pure Python (`uv build`), one for
+every platform: nothing is compiled, so nothing constrains the syntax.
+`make cli-build` packs the binary; CI packs it on every push and starts
+it, since the imports a bundler cannot see break at start, not at build.
 
 ## TDD
 

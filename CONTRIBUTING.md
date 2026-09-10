@@ -17,11 +17,6 @@ That runs everything CI runs on a checkout: `ruff format --check`,
 deterministic — no API key needed; agent behavior is tested through
 `ScriptedLlm`.
 
-CI also runs `make compile-verify` on every push: `core/` and `providers/`
-compiled by Cython into a native wheel, the suite run against that wheel in
-a fresh venv. A construct Cython cannot parse fails there, not at release —
-the two rules it puts on the code are in CLAUDE.md under "Do not".
-
 ## Ground rules
 
 - The core stays pydantic-only. Provider SDKs live in `providers/` behind

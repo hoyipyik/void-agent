@@ -11,6 +11,7 @@ from textual.containers import Horizontal
 from textual.content import Content
 from textual.widgets import Markdown, Static
 
+from cli.widgets.emphasis import parser
 from void_agent import parts_text
 
 
@@ -36,6 +37,11 @@ class Reply(Markdown):
     Reply MarkdownListItem MarkdownParagraph { margin: 0; }
     Reply MarkdownBulletList, Reply MarkdownOrderedList { margin: 0 0 1 0; }
     """
+
+    def __init__(self, markdown: str) -> None:
+        # Read with the CJK-friendly parser (`emphasis.py`), streamed and
+        # replayed alike: bold that ends in CJK punctuation is bold.
+        super().__init__(markdown, parser_factory=parser)
 
 
 class Said(Horizontal):

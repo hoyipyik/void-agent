@@ -101,13 +101,17 @@ one way too.
   reads `~/.void/mcp.json` (the `mcpServers` shape every client uses),
   `builtin_server` is the toolbox as a spec, `open_server` the real
   thing, `signature_of` the gate for a marked tool · `bench.py` `Bench`
-  starts them all on one keeper task — the SDK's transports must be
-  closed by the task that opened them — sends each one's stderr to
-  `~/.void/logs/<name>.log` (a stdio server logs to stderr, which in a
-  TUI is the canvas being drawn on), discovers their tools as
+  starts each one on a keeper task of its own — the SDK's transports
+  must be closed by the task that opened them — sends each one's stderr
+  to `~/.void/logs/<name>.log` (a stdio server logs to stderr, which in
+  a TUI is the canvas being drawn on), discovers their tools as
   `<server>__<tool>`, and hands the registry the enabled ones, gated
   where the person marked them; a server the person turned off is never
-  started, and toggling one remounts the bench.
+  started, and toggling one remounts the bench. A server that goes down
+  while mounted — its connection cut, its process gone — loses its tools
+  on the next turn, is named in `failures` (`dropped — …`) and told to
+  the app (`on_drop`), the others staying up; nothing a server does, up
+  or on the way out, reaches the shell as an exception.
 - `toolbox/` void's own MCP server over one root given at launch:
   `root.py` the boundary (`resolve`, `inside`) and `clip` · `files.py`
   read, list, tree, write, edit, move · `search.py` ripgrep: search,

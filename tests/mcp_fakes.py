@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
+import anyio
+from anyio.abc import TaskGroup
 from mcp.types import CallToolResult, TextContent
 
 from mcp import Tool as McpTool
@@ -56,3 +59,33 @@ class FakeMcp:
         if self._failure is not None:
             raise self._failure
         return self._result
+
+
+class DroppingMcp(FakeMcp):
+    """A client whose transport dies while it is mounted — what the SDK's
+    HTTP client does when the server cuts the connection. Its transport is
+    a task group of its own: the failure cancels the task holding it open,
+    and comes out of `__aexit__` as an exception group."""
+
+    def __init__(self, tools: list[McpTool]) -> None:
+        super().__init__(tools)
+        self.cut = asyncio.Event()
+        self._transport: TaskGroup | None = None
+
+    async def __aenter__(self) -> DroppingMcp:
+        await super().__aenter__()
+        self._transport = anyio.create_task_group()
+        await self._transport.__aenter__()
+        self._transport.start_soon(self._carry)
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        await super().__aexit__(*args)
+        transport, self._transport = self._transport, None
+        if transport is not None:
+            transport.cancel_scope.cancel()
+            await transport.__aexit__(None, None, None)
+
+    async def _carry(self) -> None:
+        await self.cut.wait()
+        raise ConnectionResetError("the server cut the connection")

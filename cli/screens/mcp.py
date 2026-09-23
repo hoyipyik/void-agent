@@ -246,7 +246,7 @@ class McpPicker(Switchboard):
         if condition == "off":
             note = "off"
         elif condition == "failed":
-            note = f"did not start: {self._failure[name]}"
+            note = self._failure[name]
         elif condition == "starting":
             note = "starting…"
         elif not tools:

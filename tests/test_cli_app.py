@@ -1379,3 +1379,58 @@ async def test_closing_the_app_cancels_a_mount_still_in_flight(tmp_path: Path) -
         assert mounting is not None and not mounting.done()
     assert mounting.cancelled()
     assert bench.catalog == ()  # closed, and the keeper unwound with it
+
+
+async def test_a_server_that_drops_under_the_shell_is_a_complaint_never_a_crash(
+    tmp_path: Path,
+) -> None:
+    """An HTTP server restarted under the shell: its tools go, the person
+    is told, /mcp shows it — and the shell closes as it always does. This
+    used to come out of `on_unmount` as an exception group and end the
+    process."""
+    from cli.mcp import Bench
+    from tests.mcp_fakes import DroppingMcp, FakeMcp, descriptor
+
+    from void_agent.mcp import McpServer
+
+    (tmp_path / "mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "toolbox": {"command": "npx", "args": ["-y", "fs"], "default": "on"},
+                    "docs": {"url": "https://example.test/mcp", "default": "on"},
+                }
+            }
+        )
+    )
+    docs = DroppingMcp([descriptor("search", "searches the docs")])
+    fakes: dict[str, FakeMcp] = {"toolbox": FakeMcp([descriptor("write_file")]), "docs": docs}
+    bench = Bench(opener=lambda spec: McpServer(client=fakes[spec.name]))
+    app = VoidApp(
+        lambda _config: scripted("ok"),
+        store=SessionStore(tmp_path / "sessions"),
+        config=CONFIGURED,
+        config_file=tmp_path / "config.json",
+        ollama=ollama_down(),
+        bench=bench,
+        mcp_file=tmp_path / "mcp.json",
+        skills_dir=tmp_path / "skills",
+    )
+    async with app.run_test() as pilot:
+        await finished(app)
+        await pilot.pause()
+        assert len(app.bench.catalog) == 2
+        docs.cut.set()
+        await eventually(pilot, lambda: bool(app.bench.failures))
+        await pilot.pause()
+        assert [info.id for info in app.bench.catalog] == ["toolbox__write_file"]
+        said = str(app.query(".error").last().render())
+        assert "mcp: docs dropped — the server cut the connection" in said
+        await pilot.press(*"/mcp", "enter")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, McpPicker)
+        row = str(picker.choices.get_option("server:docs").prompt)
+        assert "dropped — the server cut the connection" in row
+        await pilot.press("escape")
+    # Leaving `run_test` is the app's unmount: the bench closed, nothing raised.

@@ -95,6 +95,8 @@ class VoidApp(App[None]):
         # The MCP servers this process mounted: the same tools whichever
         # agent runs, which is why the registry, not the agent, holds them.
         self.bench = bench or Bench(log_dir=config_file.parent / LOG_DIR)
+        # A server that goes down under the shell is told here, never thrown.
+        self.bench.on_drop = self._mcp_dropped
         self.agents.bench = self.bench
         self._mcp_file = mcp_file or config_file.parent / MCP_FILE
         self._skills_dir = skills_dir or config_file.parent / SKILLS_DIR
@@ -183,7 +185,21 @@ class VoidApp(App[None]):
         for name, reason in self.bench.failures:
             log = self.bench.log_for(name)
             where = f" · what it said: {tilde(log)}" if log is not None and log.exists() else ""
-            await self.shell.complain(f"mcp: {name} did not start — {reason}{where}")
+            await self.shell.complain(f"mcp: {name} {reason}{where}")
+        self._refresh_mcp_board()
+
+    def _mcp_dropped(self, name: str, reason: str) -> None:
+        """A server that was up went down under the shell — its connection
+        cut, its process gone. The bench already took its tools off the
+        next turn; the person is told, and a board that is open shows it.
+        A server's failure is a line in the log, never the end of the
+        shell."""
+        if not self.is_running:
+            return
+        self.call_later(
+            self.shell.complain,
+            f"mcp: {name} dropped — {reason} · off and on in /mcp starts it again",
+        )
         self._refresh_mcp_board()
 
     def _refresh_mcp_board(self) -> None:

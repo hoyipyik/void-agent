@@ -5,11 +5,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 from cli.mcp import Bench, ServerSpec, open_server, read_servers
-from tests.mcp_fakes import FakeMcp, descriptor
+from tests.mcp_fakes import DroppingMcp, FakeMcp, descriptor
 
 from void_agent import Call, EventSender, Rejected, ScriptedHuman, attended
 from void_agent.mcp import McpServer
@@ -104,7 +105,7 @@ async def test_a_server_that_will_not_start_is_reported_and_the_others_still_mou
     await bench.open(specs("broken", "files"))
     try:
         assert [info.id for info in bench.catalog] == ["files__read_file"]
-        assert bench.failures == (("broken", "npx: not found"),)
+        assert bench.failures == (("broken", "did not start — npx: not found"),)
     finally:
         await bench.close()
 
@@ -302,3 +303,53 @@ async def test_a_tools_default_travels_with_it_to_the_agent() -> None:
         assert bench.tools(state=lambda info: "off") == ()
     finally:
         await bench.close()
+
+
+async def until(holds: Callable[[], bool]) -> None:
+    """A keeper's unwinding takes a few turns of the loop."""
+    for _ in range(100):
+        if holds():
+            return
+        await asyncio.sleep(0)
+    raise AssertionError("never came to hold")
+
+
+async def test_a_server_that_drops_while_mounted_is_told_and_takes_nothing_else_down() -> None:
+    """The real thing: an HTTP server restarted under the shell. The SDK's
+    transport cancels the task holding it open and raises on the way out —
+    which used to take every server with it, and come out of `close()`."""
+    files, docs = FakeMcp([READS]), DroppingMcp([FILES])
+    clients: dict[str, FakeMcp] = {"files": files, "docs": docs}
+    dropped: list[tuple[str, str]] = []
+    bench = Bench(
+        opener=lambda spec: McpServer(client=clients[spec.name]),
+        on_drop=lambda name, reason: dropped.append((name, reason)),
+    )
+    await bench.open(specs("files", "docs"))
+    assert len(bench.catalog) == 2
+    docs.cut.set()
+    await until(lambda: bool(bench.failures))
+    try:
+        assert dropped == [("docs", "the server cut the connection")]
+        assert bench.failures == (("docs", "dropped — the server cut the connection"),)
+        assert docs.closed and files.open and not files.closed
+        (capability,) = bench.tools()
+        await capability.invoke({"path": "/a"}, EventSender())
+    finally:
+        await bench.close()
+    assert files.calls == [("read_file", {"path": "/a"})]
+    assert files.closed
+
+
+async def test_a_server_that_will_not_close_cleanly_never_fails_the_close() -> None:
+    """On the way out nothing a server does may stop the shell."""
+
+    class Stuck(FakeMcp):
+        async def __aexit__(self, *args: object) -> None:
+            await super().__aexit__(*args)
+            raise RuntimeError("the session would not end")
+
+    bench = Bench(opener=lambda spec: McpServer(client=Stuck([READS])))
+    await bench.open(specs("files"))
+    await bench.close()
+    assert bench.catalog == () and bench.failures == ()

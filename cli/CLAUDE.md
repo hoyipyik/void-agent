@@ -126,7 +126,11 @@ one way too.
 - `widgets/` the protocol rendered, and the chrome around it: `turn.py`
   `TurnView.sync(parts)` walks the parts array and mounts a widget per
   part, live and replayed alike · `reply.py` the assistant's text with a
-  dot in the gutter, the person's message · `fold.py` a line that folds
+  dot in the gutter, the person's message · `emphasis.py` the parser a
+  reply reads with: Textual's own (`gfm-like`), its emphasis made
+  CJK-friendly — `**氣溫：**18.3°C` is bold where CommonMark, which
+  leans on the space between words, leaves the asterisks; text with no
+  CJK beside the run reads as CommonMark has it · `fold.py` a line that folds
   open: `ToolChip` (`⏺ name(args)`, its result under `⎿`), `DataCard`
   (any other `data-*`) · `cards.py` the plan and the reflection ·
   `ask.py` the question card answered with the keys · `format.py` a

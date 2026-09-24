@@ -439,7 +439,7 @@ def usage_lines(app: VoidApp) -> list[str]:
     return [re.sub(r"\b\d+s\b", "Ns", str(line.render())) for line in app.query(".usage")]
 
 
-async def test_a_turns_cost_trails_it_and_the_bar_says_the_context_and_the_consumed(
+async def test_a_turns_cost_trails_it_and_the_bar_says_the_context_and_the_account(
     tmp_path: Path,
 ) -> None:
     script: list[ScriptedStep] = [
@@ -454,14 +454,14 @@ async def test_a_turns_cost_trails_it_and_the_bar_says_the_context_and_the_consu
         # One trailer for the turn, after everything it produced.
         assert usage_lines(app) == ["⏺ 2 steps · Ns · 2.6k in · 57 out · 1.2k cached"]
         assert [type(child).__name__ for child in app.query_one(TurnView).children][-1] == "Static"
-        assert app.shell.status.label.endswith(" · 1.4k ctx · 2.7k consumed")
+        assert app.shell.status.label.endswith(" · 1.4k ctx · 2.6k in · 57 out · 1.2k cached")
         # The next turn (the same script again: the agent is rebuilt every
         # turn) keeps counting from where the session stood.
         await pilot.press(*"and now?", "enter")
         await finished(app)
         await pilot.pause()
         assert usage_lines(app) == ["⏺ 2 steps · Ns · 2.6k in · 57 out · 1.2k cached"] * 2
-        assert app.shell.status.label.endswith(" · 1.4k ctx · 5.3k consumed")
+        assert app.shell.status.label.endswith(" · 1.4k ctx · 5.2k in · 114 out · 2.4k cached")
         # Where the round-trip ended: after the text it streamed, before
         # the calls it made.
         assert [part["type"] for part in stored_parts(app)] == [
@@ -484,12 +484,11 @@ async def test_a_reopened_session_shows_its_cost_lines_and_context_again(tmp_pat
         await pilot.pause()
         assert usage_lines(app) == []
         assert " ctx" not in app.shell.status.label
-        assert " consumed" not in app.shell.status.label
-        assert " consumed" not in app.shell.status.label
+        assert " in ·" not in app.shell.status.label
         await app.shell.reopen(session_id)
         await pilot.pause()
         assert usage_lines(app) == ["⏺ 1 step · Ns · 800 in · 3 out"]
-        assert app.shell.status.label.endswith(" · 800 ctx · 803 consumed")
+        assert app.shell.status.label.endswith(" · 800 ctx · 800 in · 3 out")
 
 
 async def test_a_model_that_reports_nothing_leaves_only_the_time(tmp_path: Path) -> None:
@@ -500,7 +499,7 @@ async def test_a_model_that_reports_nothing_leaves_only_the_time(tmp_path: Path)
         await pilot.pause()
         assert usage_lines(app) == ["⏺ Ns"]
         assert " ctx" not in app.shell.status.label
-        assert " consumed" not in app.shell.status.label
+        assert " in ·" not in app.shell.status.label
 
 
 async def test_the_status_line_times_the_turn_and_so_does_its_trailer(tmp_path: Path) -> None:

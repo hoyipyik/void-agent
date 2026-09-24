@@ -9,7 +9,7 @@ from pathlib import Path
 from cli.config import Config
 from cli.providers.catalog import PROVIDER_LABELS
 from cli.providers.ollama import alias
-from void_agent import Usage
+from void_agent import NO_USAGE, Usage
 
 
 def tilde(path: Path) -> str:
@@ -29,15 +29,15 @@ def model_label(config: Config) -> str:
     return f"{PROVIDER_LABELS[config.provider]} · {model}"
 
 
-def bar_label(config: Config, agent: str, context: int = 0, consumed: int = 0) -> str:
+def bar_label(config: Config, agent: str, context: int = 0, spent: Usage = NO_USAGE) -> str:
     """What the status line's right side says: the agent, the model, the
-    context the model read last, and what the session has consumed so far
-    (in and out together) — each once a round-trip has said."""
+    context the model read last, and the session's account so far — in,
+    out, and what the cache served — each once a round-trip has said."""
     label = f"{agent} · {model_label(config)}"
     if context:
         label += f" · {tokens(context)} ctx"
-    if consumed:
-        label += f" · {tokens(consumed)} consumed"
+    if spent.input or spent.output:
+        label += f" · {usage_label(spent)}"
     return label
 
 

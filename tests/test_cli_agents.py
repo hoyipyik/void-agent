@@ -376,3 +376,42 @@ async def test_every_agent_gets_the_same_mcp_tools_not_just_the_universal_one(
 def test_without_a_bench_an_agent_is_exactly_what_its_builder_made() -> None:
     agent = Registry().build_agent(Config(agent="universal"))
     assert agent.tool_names == ("update_plan", "reflect")
+
+
+# ── the clock: the universal agent knows when it is ─────────────────────────
+
+
+async def test_the_universal_agent_tells_the_model_the_weekday_date_time_and_zone() -> None:
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+
+    from cli.agents.universal import build_agent
+    from tests.test_agent import CapturingLlm
+
+    from void_agent import Message, SystemText, say
+
+    llm = CapturingLlm([say("ok")])
+    now = dt.datetime(2026, 9, 24, 14, 5, tzinfo=ZoneInfo("Asia/Shanghai"))
+    await build_agent(llm, now=now).run([Message.user("what day is it?")])
+    system = llm.transcripts[0][0]
+    assert isinstance(system, SystemText)
+    assert "Thursday, 2026-09-24 14:05, Asia/Shanghai (UTC+08:00)" in system.text
+
+
+def test_the_clock_reads_the_machine_zone_by_its_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    from zoneinfo import ZoneInfo
+
+    from cli.agents.universal import local_now
+
+    monkeypatch.setenv("TZ", "America/New_York")
+    assert local_now().tzinfo == ZoneInfo("America/New_York")
+
+
+def test_an_unknown_zone_name_falls_back_to_the_machine_offset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from cli.agents.universal import local_now
+
+    monkeypatch.setenv("TZ", "Nowhere/Atlantis")
+    now = local_now()
+    assert now.utcoffset() is not None

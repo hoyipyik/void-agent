@@ -69,7 +69,10 @@ one way too.
   `scan()` reads the sources again (`/agent` opens on it — a new file
   appears, an edit needs a restart) · `agents/` the built-in shelf:
   `universal.py` (the default — the model, a plan, reflection,
-  `ask_user`, and whatever MCP is mounted), `weather.py` (the example
+  `ask_user`, and whatever MCP is mounted; its system prompt ends with
+  the local weekday, date, time and zone, read when the turn's agent is
+  built, the zone named from `TZ` or `/etc/localtime`, else just its
+  offset), `weather.py` (the example
   agent: Open-Meteo behind five thin tools — geocode, current, hourly,
   daily, history — the model as the scheduler) and `dummy_weather.py`
   (the same agent on a `ScriptedLlm` and a canned `httpx` transport, so

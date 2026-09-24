@@ -78,7 +78,7 @@ from cli.widgets.prompt import REWIND_HINT, PromptFrame, StatusBar, activity
 from cli.widgets.reply import Reply, UserBubble
 from cli.widgets.turn import TurnView
 from cli.widgets.welcome import Welcome
-from void_agent import AgentEvent, Question, UsageReported, parts_text
+from void_agent import AgentEvent, Question, Usage, UsageReported, parts_text
 
 if TYPE_CHECKING:
     from cli.app import VoidApp
@@ -146,16 +146,16 @@ class Shell(Screen[None]):
         read — and the welcome box at the top of the log."""
         config, agent = self.void.config, self.void.agent_label()
         tally = self.session.tally()
-        self._show_account(tally.context, tally.consumed)
+        self._show_account(tally.context, tally.total)
         for welcome in self.query(Welcome):
             welcome.show(config, agent)
 
-    def _show_account(self, context: int, consumed: int) -> None:
+    def _show_account(self, context: int, spent: Usage) -> None:
         """The status line's right side: the agent, the model, the context
-        the model read last and what the session has consumed, live as
-        each round-trip reports."""
+        the model read last and the session's account — in, out, cached —
+        live as each round-trip reports."""
         config, agent = self.void.config, self.void.agent_label()
-        self._status.show_model(bar_label(config, agent, context, consumed))
+        self._status.show_model(bar_label(config, agent, context, spent))
 
     def flash(self, text: str) -> None:
         """A word in the status line for a moment — "copied" — then what
@@ -521,7 +521,7 @@ class Shell(Screen[None]):
                 self._status.busy(said)
             if isinstance(event, UsageReported):
                 spent = spent + event.usage
-                self._show_account(event.usage.input, spent.input + spent.output)
+                self._show_account(event.usage.input, spent)
             await view.apply(event, parts)
 
         try:

@@ -8,7 +8,16 @@ from typing import cast
 import pytest
 from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
-from tests.provider_fakes import AnthropicClient, OpenAiClient, chunk, final_message, text_block
+from tests.provider_fakes import (
+    AnthropicClient,
+    OpenAiClient,
+    OpenAiResponsesClient,
+    chunk,
+    final_message,
+    message_item,
+    response_done,
+    text_block,
+)
 
 from void_agent import (
     Agent,
@@ -28,6 +37,7 @@ from void_agent import (
 )
 from void_agent.providers.anthropic import AnthropicLlm
 from void_agent.providers.openai import OpenAiLlm
+from void_agent.providers.openai_responses import OpenAiResponsesLlm
 
 IMAGE = ImageContent(data=b"image-test", media_type="image/png")
 PDF = PdfContent(data=b"%PDF-test", filename="report.pdf")
@@ -126,6 +136,30 @@ async def test_openai_receives_text_pdf_and_image_in_order() -> None:
             {
                 "type": "image_url",
                 "image_url": {"url": "data:image/png;base64,aW1hZ2UtdGVzdA=="},
+            },
+        ],
+    }
+
+
+async def test_the_responses_api_receives_text_pdf_and_image_in_order() -> None:
+    fake = OpenAiResponsesClient([response_done(message_item("Compared"))])
+    agent = Agent(OpenAiResponsesLlm("vision-model", client=cast(AsyncOpenAI, fake)), "a", "a")
+    agent.prompt(lambda _: [mixed_message()])
+    assert await agent.run({}) == Answer("Compared")
+    assert fake.requests[0]["input"][1] == {
+        "role": "user",
+        "content": [
+            {"type": "input_text", "text": "Compare these:"},
+            {
+                "type": "input_file",
+                "filename": "report.pdf",
+                "file_data": "data:application/pdf;base64,JVBERi10ZXN0",
+            },
+            {"type": "input_text", "text": "against this photo"},
+            {
+                "type": "input_image",
+                "image_url": "data:image/png;base64,aW1hZ2UtdGVzdA==",
+                "detail": "auto",
             },
         ],
     }

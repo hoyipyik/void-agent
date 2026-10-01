@@ -52,8 +52,9 @@ class Config:
     openai_api_key: str = ""
     openai_base_url: str | None = None
     openai_model: str = DEFAULT_MODELS["openai"]
-    # OpenAI's reasoning-tier models reject function tools on Chat
-    # Completions unless this is "none" — the server reads the same variable.
+    # How hard an OpenAI model reasons: none, low, medium, high, xhigh; empty
+    # leaves it to the model. The CLI speaks the Responses API, where tools
+    # take any of them — the server reads the same variable.
     openai_reasoning_effort: str = ""
     # Ollama: a local server, no key. Its models are whatever it has
     # installed, so there is no default — choosing one is what configures it.

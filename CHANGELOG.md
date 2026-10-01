@@ -30,8 +30,13 @@ Everything — the framework has not been released yet.
   `ask` (a question as a value); packages `human/` (attendant, channel),
   `tool/` (tool, gate), `agent/` (agent, loop, dispatch, outcome, rules),
   `events/`, `parts/`, `llm/`, `builtins/` (plan, reflection).
-- Providers: `AnthropicLlm`, `OpenAiLlm` (optional extras); `ScriptedLlm`
-  for deterministic offline runs (steps may react to the transcript).
+- Providers: `AnthropicLlm`, `OpenAiResponsesLlm`, `OpenAiLlm` (optional
+  extras); `ScriptedLlm` for deterministic offline runs (steps may react to
+  the transcript). `OpenAiResponsesLlm` is OpenAI on the Responses API,
+  stateless (`store` off, the reasoning encrypted and replayed through
+  `raw`), so tools work at any reasoning effort; `OpenAiLlm` speaks Chat
+  Completions to any compatible server. The CLI uses the first for OpenAI,
+  the second for Ollama.
 - `void_agent.mcp`: an MCP server's tools as `Tool`s, the approval declared
   by whoever mounts it. `void_agent.skills`: a folder of Markdown as tools
   whose whole effect is text in the transcript.

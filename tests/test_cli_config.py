@@ -10,6 +10,9 @@ from pathlib import Path
 from cli.config import Config, load_config, save_config
 from cli.llm import resolve_llm
 
+from void_agent.providers.openai import OpenAiLlm
+from void_agent.providers.openai_responses import OpenAiResponsesLlm
+
 
 def test_the_environment_names_the_provider(tmp_path: Path) -> None:
     config = load_config({"ANTHROPIC_API_KEY": "sk-env"}, tmp_path / "config.json")
@@ -72,6 +75,13 @@ def test_no_key_anywhere_means_no_provider(tmp_path: Path) -> None:
     assert config.provider is None
     assert config.api_key == ""
     assert resolve_llm(config) is None
+
+
+def test_openai_speaks_the_responses_api_and_ollama_chat_completions() -> None:
+    openai = Config(provider="openai", openai_api_key="k", openai_reasoning_effort="high")
+    ollama = Config(provider="ollama", ollama_model="qwen3:8b")
+    assert isinstance(resolve_llm(openai), OpenAiResponsesLlm)
+    assert isinstance(resolve_llm(ollama), OpenAiLlm)
 
 
 def test_the_config_file_is_private(tmp_path: Path) -> None:

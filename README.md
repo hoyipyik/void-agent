@@ -71,8 +71,7 @@ uv build                    # dist/
 
 A weather agent in a script: one tool that asks [Open-Meteo](https://open-meteo.com)
 (no key needed), one question, one answer. The model is whichever key is in
-the environment — an OpenAI-compatible endpoint or an Anthropic-compatible
-one.
+the environment — OpenAI or an Anthropic-compatible endpoint.
 
 ```python
 import asyncio
@@ -117,10 +116,9 @@ def model() -> Llm:
         from void_agent.providers.anthropic import AnthropicLlm
 
         return AnthropicLlm("claude-sonnet-5")
-    from void_agent.providers.openai import OpenAiLlm
+    from void_agent.providers.openai_responses import OpenAiResponsesLlm
 
-    # reasoning-tier models take function tools on Chat Completions only with this
-    return OpenAiLlm("gpt-5.6-luna", extra={"reasoning_effort": "none"})
+    return OpenAiResponsesLlm("gpt-6-luna")
 
 
 agent = (
@@ -141,16 +139,37 @@ asyncio.run(main())
 
 #### Models
 
-Two adapters. Each reads its key from the environment and speaks to every
+Three adapters. Each reads its key from the environment and speaks to every
 endpoint compatible with its API.
 
 | Adapter | Extra | Construct | Environment |
 | --- | --- | --- | --- |
-| `OpenAiLlm` — OpenAI and any Chat Completions-compatible endpoint | `openai` | `OpenAiLlm("gpt-5.6-luna", extra={"reasoning_effort": "none"})` | `OPENAI_API_KEY`; `OPENAI_BASE_URL` for another host, e.g. Ollama at `http://localhost:11434/v1` with any key |
+| `OpenAiResponsesLlm` — OpenAI on its Responses API, stateless | `openai` | `OpenAiResponsesLlm("gpt-6-luna", extra={"reasoning": {"effort": "high"}})` | `OPENAI_API_KEY`; `OPENAI_BASE_URL` for another host |
+| `OpenAiLlm` — any Chat Completions-compatible endpoint | `openai` | `OpenAiLlm("qwen3:8b")` | `OPENAI_API_KEY`; `OPENAI_BASE_URL` for another host, e.g. Ollama at `http://localhost:11434/v1` with any key |
 | `AnthropicLlm` — Anthropic and any Messages-compatible endpoint | `anthropic` | `AnthropicLlm("claude-sonnet-5")` | `ANTHROPIC_API_KEY`; `ANTHROPIC_BASE_URL` for another host |
 
-Reasoning-tier OpenAI models reject function tools on Chat Completions
-unless `reasoning_effort` is `"none"`; leave `extra` out for other models.
+For OpenAI itself, `OpenAiResponsesLlm`; `OpenAiLlm` is for a server that
+speaks only Chat Completions (Ollama and its kin). `extra` is merged into
+every request as is, so any parameter of the API goes there — and the two
+APIs spell the reasoning effort differently, each refusing the other's:
+
+```python
+OpenAiResponsesLlm("gpt-6-luna", extra={"reasoning": {"effort": "high"}})  # none … xhigh
+OpenAiLlm("gpt-6-luna", extra={"reasoning_effort": "none"})  # the only effort tools take here
+```
+
+A key or a host of your own goes in through the SDK's client:
+
+```python
+from openai import AsyncOpenAI
+
+OpenAiLlm("qwen3:8b", client=AsyncOpenAI(api_key="ollama", base_url="http://localhost:11434/v1"))
+```
+
+`OpenAiResponsesLlm` keeps nothing on OpenAI's side (`store` off): the
+model's reasoning comes back encrypted and is replayed to the next step of
+the same run, where it counts as input again; a new run starts from its
+history, without it. The reasoning a step spends counts in its `output`.
 
 ### MCP
 

@@ -22,7 +22,9 @@ src/void_agent/core/     the concepts, finely split (one concern per file):
                          (plan, reflection — shipped tools, chain-enabled
                          via `with_plan`/`with_reflection`, never injected),
                          events/ parts/ llm/ — pydantic only
-src/void_agent/providers anthropic.py / openai.py — SDK types stay inside
+src/void_agent/providers anthropic.py / openai_responses.py (OpenAI, stateless)
+                         / openai.py (Chat Completions: Ollama and kin) —
+                         SDK types stay inside
 src/void_agent/mcp       the bridge: an MCP server's tools as `Tool`s
                          (server.py mounts and discovers, result.py maps a
                          CallToolResult); the approval is declared by the

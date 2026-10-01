@@ -1,7 +1,9 @@
 """The Llm the configured provider gives, and the one place in the CLI a
 provider's SDK is imported. The imports stay lazy so the unused SDK is
-never touched. Ollama is the OpenAI provider pointed at the local
-server's `/v1`: no key, the model one of what it has installed."""
+never touched. OpenAI speaks the Responses API, where its models take
+tools at any reasoning effort. Ollama is the Chat Completions adapter
+pointed at the local server's `/v1`: no key, the model one of what it has
+installed."""
 
 from __future__ import annotations
 
@@ -29,10 +31,12 @@ def resolve_llm(config: Config) -> Llm | None:
         # Chat Completions at /v1; the key is ignored there, but the SDK insists on one.
         client = AsyncOpenAI(api_key="ollama", base_url=f"{config.ollama_host}/v1")
         return OpenAiLlm(config.ollama_model, client=client)
+    from void_agent.providers.openai_responses import OpenAiResponsesLlm
+
     client = AsyncOpenAI(api_key=config.openai_api_key, base_url=config.openai_base_url)
     extra = (
-        {"reasoning_effort": config.openai_reasoning_effort}
+        {"reasoning": {"effort": config.openai_reasoning_effort}}
         if config.openai_reasoning_effort
         else None
     )
-    return OpenAiLlm(config.openai_model, client=client, extra=extra)
+    return OpenAiResponsesLlm(config.openai_model, client=client, extra=extra)

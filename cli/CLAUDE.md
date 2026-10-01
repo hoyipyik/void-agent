@@ -98,8 +98,9 @@ one way too.
   provider; `provider_of` reads a bare id) · `ollama.py` the local
   server's own list, read live (`/api/tags`, `/api/show` for what each
   can do) when the picker opens; `alias` is the short name shown,
-  `find_installed` checks a bare name; the model itself is the OpenAI
-  provider on `<host>/v1`, no key.
+  `find_installed` checks a bare name; the model itself is the Chat
+  Completions adapter on `<host>/v1`, no key, where OpenAI's own models
+  go through the Responses API (`llm.py`).
 - `mcp/` the servers this process mounted: `spec.py` `read_servers`
   reads `~/.void/mcp.json` (the `mcpServers` shape every client uses),
   `builtin_server` is the toolbox as a spec, `open_server` the real

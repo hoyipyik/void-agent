@@ -146,3 +146,85 @@ class OpenAiClient:
                 return stream
 
         return SimpleNamespace(completions=Completions())
+
+
+class OpenAiItem:
+    """An output item as the SDK hands it: `to_dict` is the API's own JSON."""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        self._data = data
+
+    def to_dict(self) -> dict[str, Any]:
+        return dict(self._data)
+
+
+def output_text_delta(delta: str) -> Any:
+    return SimpleNamespace(type="response.output_text.delta", delta=delta)
+
+
+def response_done(
+    *items: dict[str, Any], usage: Any = None, kind: str = "response.completed"
+) -> Any:
+    """The event that closes a response, `response.completed` unless told."""
+    response = SimpleNamespace(output=[OpenAiItem(item) for item in items], usage=usage)
+    return SimpleNamespace(type=kind, response=response)
+
+
+def response_failed(message: str) -> Any:
+    error = SimpleNamespace(code="server_error", message=message)
+    return SimpleNamespace(
+        type="response.failed", response=SimpleNamespace(output=[], usage=None, error=error)
+    )
+
+
+def response_usage(input_tokens: int, output_tokens: int, *, cached: int = 0) -> Any:
+    """`input_tokens` is the whole prompt, the cached share inside it."""
+    details = SimpleNamespace(cached_tokens=cached, cache_write_tokens=None)
+    return SimpleNamespace(
+        input_tokens=input_tokens, output_tokens=output_tokens, input_tokens_details=details
+    )
+
+
+def message_item(text: str) -> dict[str, Any]:
+    return {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "status": "completed",
+        "content": [{"type": "output_text", "text": text, "annotations": []}],
+    }
+
+
+def function_call_item(call_id: str, name: str, arguments: str) -> dict[str, Any]:
+    return {
+        "id": f"fc_{call_id}",
+        "type": "function_call",
+        "call_id": call_id,
+        "name": name,
+        "arguments": arguments,
+        "status": "completed",
+    }
+
+
+def reasoning_item(encrypted: str) -> dict[str, Any]:
+    return {"id": "rs_1", "type": "reasoning", "summary": [], "encrypted_content": encrypted}
+
+
+class OpenAiResponsesClient:
+    def __init__(self, events: list[Any]) -> None:
+        self.requests: list[dict[str, Any]] = []
+        self.streams: list[OpenAiStream] = []
+        self._events = events
+
+    @property
+    def responses(self) -> Any:
+        outer = self
+
+        class Responses:
+            async def create(self, **kwargs: Any) -> Any:
+                outer.requests.append(kwargs)
+                stream = OpenAiStream(outer._events)
+                outer.streams.append(stream)
+                return stream
+
+        return Responses()

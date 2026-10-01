@@ -279,11 +279,11 @@ async def test_slash_model_alone_opens_the_picker_and_a_digit_picks(tmp_path: Pa
         await pilot.press(*"/model", "enter")
         await pilot.pause()
         assert isinstance(app.screen, ModelPicker)
-        # OpenAI heads the catalogue: Terra, then Sol
+        # OpenAI heads the catalogue: GPT-6 Luna, then Terra
         await pilot.press("2")
         await pilot.pause()
         assert not isinstance(app.screen, ModelPicker)
-        assert (app.config.provider, app.config.model) == ("openai", "gpt-5.6-sol")
+        assert (app.config.provider, app.config.model) == ("openai", "gpt-5.6-terra")
 
 
 async def test_the_picker_opens_on_the_model_in_use_and_the_arrows_move(tmp_path: Path) -> None:

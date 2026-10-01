@@ -42,14 +42,13 @@ class ModelInfo:
 
 
 # The recommended model of each keyed provider is its default and heads
-# its group. OpenAI comes first: Terra is what the CLI starts on.
+# its group. OpenAI comes first: GPT-6 Luna is what the CLI starts on.
 CATALOG: tuple[ModelInfo, ...] = (
-    ModelInfo(
-        "openai", "gpt-5.6-terra", "GPT-5.6 Terra", "intelligence and cost in balance", True
-    ),
+    ModelInfo("openai", "gpt-6-luna", "GPT-6 Luna", "efficient: focused, high-volume work", True),
+    ModelInfo("openai", "gpt-5.6-terra", "GPT-5.6 Terra", "intelligence and cost in balance"),
     ModelInfo("openai", "gpt-5.6-sol", "GPT-5.6 Sol", "complex professional work"),
     ModelInfo("openai", "gpt-6-astra", "GPT-6 Astra", "the most capable: the hardest work"),
-    ModelInfo("openai", "gpt-5.6-luna", "GPT-5.6 Luna", "cost-sensitive, high-volume work"),
+    ModelInfo("openai", "gpt-5.6-luna", "GPT-5.6 Luna", "the previous Luna"),
     ModelInfo("openai", "gpt-5.5", "GPT-5.5", "coding and professional work"),
     ModelInfo("openai", "gpt-5.4", "GPT-5.4", "the previous generation"),
     ModelInfo("openai", "gpt-5.4-mini", "GPT-5.4 mini", "small and quick"),

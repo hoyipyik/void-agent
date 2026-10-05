@@ -42,16 +42,15 @@ def test_a_round_trips_cost_names_the_cache_only_when_it_served() -> None:
 
 
 def test_the_bar_names_the_context_and_the_account_once_a_round_trip_said() -> None:
-    assert bar_label(CONFIGURED, "universal") == "universal · Anthropic · claude-opus-5"
-    assert bar_label(CONFIGURED, "universal", 12_345) == (
-        "universal · Anthropic · claude-opus-5 · 12k ctx"
-    )
+    model = "Anthropic · claude-opus-5 · high effort"  # what it runs at when nothing is asked
+    assert bar_label(CONFIGURED, "universal") == f"universal · {model}"
+    assert bar_label(CONFIGURED, "universal", 12_345) == f"universal · {model} · 12k ctx"
     assert bar_label(CONFIGURED, "universal", 12_345, Usage(input=51_234, output=2_345)) == (
-        "universal · Anthropic · claude-opus-5 · 12k ctx · 51k in · 2.3k out"
+        f"universal · {model} · 12k ctx · 51k in · 2.3k out"
     )
     assert bar_label(
         CONFIGURED, "universal", 12_345, Usage(input=51_234, output=2_345, cache_read=40_000)
-    ) == ("universal · Anthropic · claude-opus-5 · 12k ctx · 51k in · 2.3k out · 40k cached")
+    ) == (f"universal · {model} · 12k ctx · 51k in · 2.3k out · 40k cached")
 
 
 def test_the_session_tallies_every_round_trip_it_kept(tmp_path: Path) -> None:

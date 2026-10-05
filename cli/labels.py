@@ -22,11 +22,14 @@ def tilde(path: Path) -> str:
 
 def model_label(config: Config) -> str:
     """The provider and the model as the status line says them — an
-    Ollama model by its alias."""
+    Ollama model by its alias — and the effort it runs at, where it
+    reasons on request."""
     if config.provider is None:
         return "no model"
     model = alias(config.model) if config.provider == "ollama" else config.model
-    return f"{PROVIDER_LABELS[config.provider]} · {model}"
+    label = f"{PROVIDER_LABELS[config.provider]} · {model}"
+    effort = config.running_effort
+    return f"{label} · {effort} effort" if effort else label
 
 
 def bar_label(config: Config, agent: str, context: int = 0, spent: Usage = NO_USAGE) -> str:

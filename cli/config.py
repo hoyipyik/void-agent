@@ -18,7 +18,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from cli.providers.catalog import DEFAULT_MODELS, PROVIDERS, Provider, as_provider
+from cli.providers.catalog import DEFAULT_MODELS, PROVIDERS, Provider, as_provider, describe
 from cli.providers.ollama import DEFAULT_HOST, host_url
 
 DEFAULT_AGENT = "universal"
@@ -42,6 +42,10 @@ _KEY_FIELDS: dict[Provider, str] = {  # the keyed providers only
     "anthropic": "anthropic_api_key",
     "openai": "openai_api_key",
 }
+_EFFORT_FIELDS: dict[Provider, str] = {  # the providers whose models reason on request
+    "anthropic": "anthropic_effort",
+    "openai": "openai_reasoning_effort",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,12 +53,14 @@ class Config:
     provider: Provider | None = None
     anthropic_api_key: str = ""
     anthropic_model: str = DEFAULT_MODELS["anthropic"]
+    # How hard a provider's model reasons, as `/model`'s arrows set it:
+    # asked for only where the model takes it (`effort`), so a switch to a
+    # model with a shorter scale runs at its own default. Empty leaves it to
+    # the model. The server reads OPENAI_REASONING_EFFORT too.
+    anthropic_effort: str = ""
     openai_api_key: str = ""
     openai_base_url: str | None = None
     openai_model: str = DEFAULT_MODELS["openai"]
-    # How hard an OpenAI model reasons: none, low, medium, high, xhigh; empty
-    # leaves it to the model. The CLI speaks the Responses API, where tools
-    # take any of them — the server reads the same variable.
     openai_reasoning_effort: str = ""
     # Ollama: a local server, no key. Its models are whatever it has
     # installed, so there is no default — choosing one is what configures it.
@@ -152,8 +158,35 @@ class Config:
     def configured(self) -> bool:
         return self.provider is not None and self.ready(self.provider)
 
-    def with_model(self, provider: Provider, model: str) -> Config:
-        return replace(self, provider=provider, **{_MODEL_FIELDS[provider]: model})
+    def effort_for(self, provider: Provider) -> str:
+        """The effort set for a provider, whatever its model takes."""
+        field = _EFFORT_FIELDS.get(provider)
+        return str(getattr(self, field)) if field else ""
+
+    @property
+    def effort(self) -> str:
+        """The effort to ask for: the provider's, where the catalogue says
+        the model takes it; empty otherwise, and the model runs at its own."""
+        model = describe(self.model)
+        if self.provider is None or model is None:
+            return ""
+        asked = self.effort_for(self.provider)
+        return asked if asked in model.efforts else ""
+
+    @property
+    def running_effort(self) -> str:
+        """The effort the model runs at, as far as the catalogue knows."""
+        model = describe(self.model)
+        if self.provider is None or model is None:
+            return ""
+        return model.effort_at(self.effort_for(self.provider))
+
+    def with_model(self, provider: Provider, model: str, effort: str | None = None) -> Config:
+        """The model, and the provider's effort when one is given."""
+        fields = {_MODEL_FIELDS[provider]: model}
+        if effort is not None and provider in _EFFORT_FIELDS:
+            fields[_EFFORT_FIELDS[provider]] = effort
+        return replace(self, provider=provider, **fields)
 
     def with_key(self, provider: Provider, key: str) -> Config:
         """A keyed provider's key; Ollama has no field for one."""
@@ -173,6 +206,7 @@ class Config:
             provider=as_provider(data.get("provider")),
             anthropic_api_key=str(data.get("anthropic_api_key") or ""),
             anthropic_model=str(data.get("anthropic_model") or defaults.anthropic_model),
+            anthropic_effort=str(data.get("anthropic_effort") or ""),
             openai_api_key=str(data.get("openai_api_key") or ""),
             openai_base_url=str(data["openai_base_url"]) if data.get("openai_base_url") else None,
             openai_model=str(data.get("openai_model") or defaults.openai_model),

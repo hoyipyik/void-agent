@@ -286,6 +286,72 @@ async def test_slash_model_alone_opens_the_picker_and_a_digit_picks(tmp_path: Pa
         assert (app.config.provider, app.config.model) == ("openai", "gpt-5.6-terra")
 
 
+LUNA = Config(provider="openai", openai_api_key="k", openai_model="gpt-6-luna")
+
+
+def row(picker: ModelPicker, model_id: str) -> str:
+    return str(picker.choices.get_option(model_id).prompt)
+
+
+async def test_left_and_right_set_the_effort_of_the_model_under_the_cursor(tmp_path: Path) -> None:
+    app = make_app(tmp_path, config=LUNA)
+    async with app.run_test() as pilot:
+        await pilot.press(*"/model", "enter")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, ModelPicker)
+        assert "medium" in row(picker, "gpt-6-luna")  # what it runs at when nothing is asked
+        await pilot.press("right", "right")
+        assert "xhigh" in row(picker, "gpt-6-luna")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert (app.config.model, app.config.openai_reasoning_effort) == ("gpt-6-luna", "xhigh")
+        assert model_label(app.config) == "OpenAI · gpt-6-luna · xhigh effort"
+
+
+async def test_the_effort_stops_at_the_ends_of_what_the_model_takes(tmp_path: Path) -> None:
+    app = make_app(tmp_path, config=LUNA)
+    async with app.run_test() as pilot:
+        await pilot.press(*"/model", "enter")
+        await pilot.pause()
+        await pilot.press(*["left"] * 5, "enter")
+        await pilot.pause()
+        assert app.config.openai_reasoning_effort == "none"
+
+
+async def test_a_row_shows_the_providers_effort_only_where_its_model_takes_it(
+    tmp_path: Path,
+) -> None:
+    app = make_app(tmp_path, config=replace(LUNA, openai_reasoning_effort="max"))
+    async with app.run_test() as pilot:
+        await pilot.press(*"/model", "enter")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, ModelPicker)
+        assert "max" in row(picker, "gpt-6-luna")
+        assert "medium" in row(picker, "gpt-5.5")  # it takes no max: its own default
+
+
+async def test_a_model_that_takes_no_effort_ignores_the_arrows(tmp_path: Path) -> None:
+    app = make_app(tmp_path, config=replace(CONFIGURED, anthropic_model="claude-haiku-4-5"))
+    async with app.run_test() as pilot:
+        await pilot.press(*"/model", "enter")
+        await pilot.pause()
+        await pilot.press("right", "enter")
+        await pilot.pause()
+        assert (app.config.model, app.config.anthropic_effort) == ("claude-haiku-4-5", "")
+
+
+async def test_escape_leaves_the_effort_as_it_was(tmp_path: Path) -> None:
+    app = make_app(tmp_path, config=LUNA)
+    async with app.run_test() as pilot:
+        await pilot.press(*"/model", "enter")
+        await pilot.pause()
+        await pilot.press("right", "escape")
+        await pilot.pause()
+        assert app.config.openai_reasoning_effort == ""
+
+
 async def test_the_picker_opens_on_the_model_in_use_and_the_arrows_move(tmp_path: Path) -> None:
     app = make_app(
         tmp_path,

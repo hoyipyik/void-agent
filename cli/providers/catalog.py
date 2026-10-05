@@ -3,7 +3,12 @@
 The id is what the provider is asked for. The catalogue is a menu, not a
 fence: `/model <id>` still reaches a model it does not list. Ollama, the
 third provider, has no catalogue: its list is whatever the local server
-has installed, read when the picker opens (`ollama.py`)."""
+has installed, read when the picker opens (`ollama.py`).
+
+A model's efforts are the reasoning levels its own API accepts, read off
+it model by model — OpenAI's by asking each (2026-10-01), Anthropic's from
+its documentation — since a level one model takes, its neighbour may
+refuse with a 400."""
 
 from __future__ import annotations
 
@@ -39,28 +44,157 @@ class ModelInfo:
     # Whether the model can call tools — what an agent runs on. Every
     # cloud model can; an Ollama model says so through `/api/show`.
     tools: bool = True
+    # The reasoning efforts it takes, least first, and the one it runs at
+    # when none is asked for; none at all where it takes none.
+    efforts: tuple[str, ...] = ()
+    default_effort: str = ""
+
+    def effort_at(self, asked: str) -> str:
+        """The effort it runs at when `asked` is asked for: that, where it
+        takes it, else its own default."""
+        return asked if asked in self.efforts else self.default_effort
+
+
+GPT = ("none", "low", "medium", "high", "xhigh", "max")
+GPT_NO_MAX = GPT[:-1]
+CLAUDE = ("low", "medium", "high", "xhigh", "max")
+CLAUDE_NO_XHIGH = ("low", "medium", "high", "max")
 
 
 # The recommended model of each keyed provider is its default and heads
 # its group. OpenAI comes first: GPT-6 Luna is what the CLI starts on.
 CATALOG: tuple[ModelInfo, ...] = (
-    ModelInfo("openai", "gpt-6-luna", "GPT-6 Luna", "efficient: focused, high-volume work", True),
-    ModelInfo("openai", "gpt-5.6-terra", "GPT-5.6 Terra", "intelligence and cost in balance"),
-    ModelInfo("openai", "gpt-5.6-sol", "GPT-5.6 Sol", "complex professional work"),
-    ModelInfo("openai", "gpt-6-astra", "GPT-6 Astra", "the most capable: the hardest work"),
-    ModelInfo("openai", "gpt-5.6-luna", "GPT-5.6 Luna", "the previous Luna"),
-    ModelInfo("openai", "gpt-5.5", "GPT-5.5", "coding and professional work"),
-    ModelInfo("openai", "gpt-5.4", "GPT-5.4", "the previous generation"),
-    ModelInfo("openai", "gpt-5.4-mini", "GPT-5.4 mini", "small and quick"),
-    ModelInfo("openai", "gpt-5.4-nano", "GPT-5.4 nano", "the cheapest: simple, high-volume tasks"),
-    ModelInfo("anthropic", "claude-opus-5", "Opus 5", "complex reasoning and coding", True),
-    ModelInfo("anthropic", "claude-sonnet-5", "Sonnet 5", "fast and balanced, for everyday work"),
+    ModelInfo(
+        "openai",
+        "gpt-6-luna",
+        "GPT-6 Luna",
+        "efficient: focused, high-volume work",
+        True,
+        efforts=GPT,
+        default_effort="medium",
+    ),
+    ModelInfo(
+        "openai",
+        "gpt-5.6-terra",
+        "GPT-5.6 Terra",
+        "intelligence and cost in balance",
+        efforts=GPT,
+        default_effort="medium",
+    ),
+    ModelInfo(
+        "openai",
+        "gpt-5.6-sol",
+        "GPT-5.6 Sol",
+        "complex professional work",
+        efforts=GPT,
+        default_effort="medium",
+    ),
+    ModelInfo(
+        "openai",
+        "gpt-6-astra",
+        "GPT-6 Astra",
+        "the most capable: the hardest work",
+        efforts=GPT[1:],  # it always reasons: no "none"
+        default_effort="medium",
+    ),
+    ModelInfo(
+        "openai",
+        "gpt-5.6-luna",
+        "GPT-5.6 Luna",
+        "the previous Luna",
+        efforts=GPT,
+        default_effort="medium",
+    ),
+    ModelInfo(
+        "openai",
+        "gpt-5.5",
+        "GPT-5.5",
+        "coding and professional work",
+        efforts=GPT_NO_MAX,
+        default_effort="medium",
+    ),
+    ModelInfo(
+        "openai",
+        "gpt-5.4",
+        "GPT-5.4",
+        "the previous generation",
+        efforts=GPT_NO_MAX,
+        default_effort="none",
+    ),
+    ModelInfo(
+        "openai",
+        "gpt-5.4-mini",
+        "GPT-5.4 mini",
+        "small and quick",
+        efforts=GPT_NO_MAX,
+        default_effort="none",
+    ),
+    ModelInfo(
+        "openai",
+        "gpt-5.4-nano",
+        "GPT-5.4 nano",
+        "the cheapest: simple, high-volume tasks",
+        efforts=GPT_NO_MAX,
+        default_effort="none",
+    ),
+    ModelInfo(
+        "anthropic",
+        "claude-opus-5",
+        "Opus 5",
+        "complex reasoning and coding",
+        True,
+        efforts=CLAUDE,
+        default_effort="high",
+    ),
+    ModelInfo(
+        "anthropic",
+        "claude-sonnet-5",
+        "Sonnet 5",
+        "fast and balanced, for everyday work",
+        efforts=CLAUDE,
+        default_effort="high",
+    ),
     ModelInfo("anthropic", "claude-haiku-4-5", "Haiku 4.5", "the quickest and the cheapest"),
-    ModelInfo("anthropic", "claude-fable-5-1", "Fable 5.1", "the most capable: long, hard tasks"),
-    ModelInfo("anthropic", "claude-opus-4-8", "Opus 4.8", "the previous Opus"),
-    ModelInfo("anthropic", "claude-opus-4-7", "Opus 4.7", "an earlier Opus"),
-    ModelInfo("anthropic", "claude-opus-4-6", "Opus 4.6", "an earlier Opus"),
-    ModelInfo("anthropic", "claude-sonnet-4-6", "Sonnet 4.6", "the previous Sonnet"),
+    ModelInfo(
+        "anthropic",
+        "claude-fable-5-1",
+        "Fable 5.1",
+        "the most capable: long, hard tasks",
+        efforts=CLAUDE,
+        default_effort="high",
+    ),
+    ModelInfo(
+        "anthropic",
+        "claude-opus-4-8",
+        "Opus 4.8",
+        "the previous Opus",
+        efforts=CLAUDE,
+        default_effort="high",
+    ),
+    ModelInfo(
+        "anthropic",
+        "claude-opus-4-7",
+        "Opus 4.7",
+        "an earlier Opus",
+        efforts=CLAUDE,
+        default_effort="high",
+    ),
+    ModelInfo(
+        "anthropic",
+        "claude-opus-4-6",
+        "Opus 4.6",
+        "an earlier Opus",
+        efforts=CLAUDE_NO_XHIGH,
+        default_effort="high",
+    ),
+    ModelInfo(
+        "anthropic",
+        "claude-sonnet-4-6",
+        "Sonnet 4.6",
+        "the previous Sonnet",
+        efforts=CLAUDE_NO_XHIGH,
+        default_effort="high",
+    ),
 )
 
 DEFAULT_MODELS: dict[Provider, str] = {m.provider: m.id for m in CATALOG if m.recommended}

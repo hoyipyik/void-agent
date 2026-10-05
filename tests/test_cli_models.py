@@ -44,3 +44,27 @@ def test_a_model_id_names_its_provider_from_the_catalogue_or_its_family() -> Non
     assert provider_of("qwen3:8b") == "ollama"  # a tag is Ollama's naming
     assert provider_of("hf.co/someone/model-gguf:latest") == "ollama"  # so is a namespace
     assert provider_of("llama-3") is None
+
+
+def efforts(model_id: str) -> tuple[str, ...]:
+    model = describe(model_id)
+    assert model is not None
+    return model.efforts
+
+
+def test_a_model_runs_at_a_default_effort_it_takes() -> None:
+    for model in CATALOG:
+        assert (
+            (model.default_effort in model.efforts) if model.efforts else not model.default_effort
+        )
+
+
+def test_each_model_takes_the_efforts_its_own_api_accepts() -> None:
+    """Read off the APIs model by model: a level one model takes, its
+    neighbour may refuse."""
+    assert efforts("gpt-6-luna") == ("none", "low", "medium", "high", "xhigh", "max")
+    assert "none" not in efforts("gpt-6-astra")
+    assert "max" not in efforts("gpt-5.5")
+    assert efforts("claude-opus-5") == ("low", "medium", "high", "xhigh", "max")
+    assert "xhigh" not in efforts("claude-opus-4-6")
+    assert efforts("claude-haiku-4-5") == ()

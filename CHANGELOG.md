@@ -51,8 +51,10 @@ Everything — the framework has not been released yet.
   canned data, no key. `--agent module:function` mounts your own. Models from
   Anthropic, OpenAI-compatible endpoints, or a local Ollama, picked in
   `/model`, where ← and → set a cloud model's reasoning effort along the
-  levels its API takes (a Claude model that takes one thinks adaptively);
-  the status line says the effort it runs at. `make cli` runs it;
+  levels its API takes (a Claude model that takes one thinks adaptively).
+  It is always asked for at a level — the model's default until moved;
+  OpenAI's `none`, no reasoning at all, is there to choose and never a
+  default — and the status line says which. `make cli` runs it;
   `make cli-build` packs `dist/void`.
 - Packaging: `uv build` is the wheel and the sdist. The wheel is pure
   Python (`py3-none-any`): one file for every OS, CPU and Python.

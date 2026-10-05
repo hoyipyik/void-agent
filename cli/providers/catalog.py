@@ -8,7 +8,10 @@ has installed, read when the picker opens (`ollama.py`).
 A model's efforts are the reasoning levels its own API accepts, read off
 it model by model — OpenAI's by asking each (2026-10-01), Anthropic's from
 its documentation — since a level one model takes, its neighbour may
-refuse with a 400."""
+refuse with a 400. OpenAI's `none` — no reasoning at all — is the least on
+the scale of a model that takes it: there for the person to choose, never
+a default. What the CLI asks for is always on the scale and never left to
+the API, whose own default for some models is that `none`."""
 
 from __future__ import annotations
 
@@ -44,21 +47,22 @@ class ModelInfo:
     # Whether the model can call tools — what an agent runs on. Every
     # cloud model can; an Ollama model says so through `/api/show`.
     tools: bool = True
-    # The reasoning efforts it takes, least first, and the one it runs at
-    # when none is asked for; none at all where it takes none.
+    # The reasoning efforts it takes, least first, and its default: what
+    # it is asked for until the person moves it. Empty where it takes none.
     efforts: tuple[str, ...] = ()
     default_effort: str = ""
 
-    def effort_at(self, asked: str) -> str:
-        """The effort it runs at when `asked` is asked for: that, where it
-        takes it, else its own default."""
-        return asked if asked in self.efforts else self.default_effort
+    def effort_at(self, set_to: str) -> str:
+        """The effort to ask it for when the provider's is `set_to`: that,
+        where it takes it, else its default."""
+        return set_to if set_to in self.efforts else self.default_effort
 
 
-GPT = ("none", "low", "medium", "high", "xhigh", "max")
-GPT_NO_MAX = GPT[:-1]
-CLAUDE = ("low", "medium", "high", "xhigh", "max")
-CLAUDE_NO_XHIGH = ("low", "medium", "high", "max")
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
+NO_MAX = EFFORTS[:-1]
+NO_XHIGH = ("low", "medium", "high", "max")
+OR_NONE = ("none", *EFFORTS)
+OR_NONE_NO_MAX = ("none", *NO_MAX)
 
 
 # The recommended model of each keyed provider is its default and heads
@@ -70,15 +74,19 @@ CATALOG: tuple[ModelInfo, ...] = (
         "GPT-6 Luna",
         "efficient: focused, high-volume work",
         True,
-        efforts=GPT,
-        default_effort="medium",
+        efforts=OR_NONE,
+        # Its API's own is medium. Measured on this CLI's agent (2026-10-05),
+        # max got hard problems right 20 times in 24 where medium, high and
+        # xhigh got 12 or 13, for 1.4x the cost on ordinary tasks and 2.4x on
+        # hard ones — of the cheapest model there is.
+        default_effort="max",
     ),
     ModelInfo(
         "openai",
         "gpt-5.6-terra",
         "GPT-5.6 Terra",
         "intelligence and cost in balance",
-        efforts=GPT,
+        efforts=OR_NONE,
         default_effort="medium",
     ),
     ModelInfo(
@@ -86,7 +94,7 @@ CATALOG: tuple[ModelInfo, ...] = (
         "gpt-5.6-sol",
         "GPT-5.6 Sol",
         "complex professional work",
-        efforts=GPT,
+        efforts=OR_NONE,
         default_effort="medium",
     ),
     ModelInfo(
@@ -94,7 +102,7 @@ CATALOG: tuple[ModelInfo, ...] = (
         "gpt-6-astra",
         "GPT-6 Astra",
         "the most capable: the hardest work",
-        efforts=GPT[1:],  # it always reasons: no "none"
+        efforts=EFFORTS,
         default_effort="medium",
     ),
     ModelInfo(
@@ -102,7 +110,7 @@ CATALOG: tuple[ModelInfo, ...] = (
         "gpt-5.6-luna",
         "GPT-5.6 Luna",
         "the previous Luna",
-        efforts=GPT,
+        efforts=OR_NONE,
         default_effort="medium",
     ),
     ModelInfo(
@@ -110,7 +118,7 @@ CATALOG: tuple[ModelInfo, ...] = (
         "gpt-5.5",
         "GPT-5.5",
         "coding and professional work",
-        efforts=GPT_NO_MAX,
+        efforts=OR_NONE_NO_MAX,
         default_effort="medium",
     ),
     ModelInfo(
@@ -118,24 +126,24 @@ CATALOG: tuple[ModelInfo, ...] = (
         "gpt-5.4",
         "GPT-5.4",
         "the previous generation",
-        efforts=GPT_NO_MAX,
-        default_effort="none",
+        efforts=OR_NONE_NO_MAX,
+        default_effort="low",  # the API's own is `none`, as for the two below
     ),
     ModelInfo(
         "openai",
         "gpt-5.4-mini",
         "GPT-5.4 mini",
         "small and quick",
-        efforts=GPT_NO_MAX,
-        default_effort="none",
+        efforts=OR_NONE_NO_MAX,
+        default_effort="low",
     ),
     ModelInfo(
         "openai",
         "gpt-5.4-nano",
         "GPT-5.4 nano",
         "the cheapest: simple, high-volume tasks",
-        efforts=GPT_NO_MAX,
-        default_effort="none",
+        efforts=OR_NONE_NO_MAX,
+        default_effort="low",
     ),
     ModelInfo(
         "anthropic",
@@ -143,7 +151,7 @@ CATALOG: tuple[ModelInfo, ...] = (
         "Opus 5",
         "complex reasoning and coding",
         True,
-        efforts=CLAUDE,
+        efforts=EFFORTS,
         default_effort="high",
     ),
     ModelInfo(
@@ -151,7 +159,7 @@ CATALOG: tuple[ModelInfo, ...] = (
         "claude-sonnet-5",
         "Sonnet 5",
         "fast and balanced, for everyday work",
-        efforts=CLAUDE,
+        efforts=EFFORTS,
         default_effort="high",
     ),
     ModelInfo("anthropic", "claude-haiku-4-5", "Haiku 4.5", "the quickest and the cheapest"),
@@ -160,7 +168,7 @@ CATALOG: tuple[ModelInfo, ...] = (
         "claude-fable-5-1",
         "Fable 5.1",
         "the most capable: long, hard tasks",
-        efforts=CLAUDE,
+        efforts=EFFORTS,
         default_effort="high",
     ),
     ModelInfo(
@@ -168,7 +176,7 @@ CATALOG: tuple[ModelInfo, ...] = (
         "claude-opus-4-8",
         "Opus 4.8",
         "the previous Opus",
-        efforts=CLAUDE,
+        efforts=EFFORTS,
         default_effort="high",
     ),
     ModelInfo(
@@ -176,7 +184,7 @@ CATALOG: tuple[ModelInfo, ...] = (
         "claude-opus-4-7",
         "Opus 4.7",
         "an earlier Opus",
-        efforts=CLAUDE,
+        efforts=EFFORTS,
         default_effort="high",
     ),
     ModelInfo(
@@ -184,7 +192,7 @@ CATALOG: tuple[ModelInfo, ...] = (
         "claude-opus-4-6",
         "Opus 4.6",
         "an earlier Opus",
-        efforts=CLAUDE_NO_XHIGH,
+        efforts=NO_XHIGH,
         default_effort="high",
     ),
     ModelInfo(
@@ -192,7 +200,7 @@ CATALOG: tuple[ModelInfo, ...] = (
         "claude-sonnet-4-6",
         "Sonnet 4.6",
         "the previous Sonnet",
-        efforts=CLAUDE_NO_XHIGH,
+        efforts=NO_XHIGH,
         default_effort="high",
     ),
 )

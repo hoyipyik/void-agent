@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import Any
 
 from cli.config import Config
-from cli.providers.catalog import describe
 from void_agent import Llm
 
 # Room for the thinking a high effort spends: the adapter streams, so a
@@ -19,19 +18,16 @@ THINKING_MAX_TOKENS = 64_000
 
 
 def extra_for(config: Config) -> dict[str, Any] | None:
-    """What the request adds for the configured model: the effort it takes.
-    A Claude model that takes one thinks adaptively — some do only when
-    told — so the effort is how hard it thinks, as OpenAI's is."""
+    """What the request adds for the configured model: the effort it is
+    asked for, where it takes one. A Claude model that takes one thinks
+    adaptively — some do only when told — so the effort is how hard it
+    thinks, as OpenAI's is."""
     effort = config.effort
-    if config.provider == "openai":
-        return {"reasoning": {"effort": effort}} if effort else None
-    model = describe(config.model)
-    if config.provider != "anthropic" or model is None or not model.efforts:
+    if not effort:
         return None
-    extra: dict[str, Any] = {"thinking": {"type": "adaptive"}}
-    if effort:
-        extra["output_config"] = {"effort": effort}
-    return extra
+    if config.provider == "openai":
+        return {"reasoning": {"effort": effort}}
+    return {"thinking": {"type": "adaptive"}, "output_config": {"effort": effort}}
 
 
 def max_tokens_for(config: Config) -> int | None:

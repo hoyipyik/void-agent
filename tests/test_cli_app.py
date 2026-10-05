@@ -316,7 +316,7 @@ async def test_the_effort_stops_at_the_ends_of_what_the_model_takes(tmp_path: Pa
         await pilot.pause()
         await pilot.press(*["left"] * 5, "enter")
         await pilot.pause()
-        assert app.config.openai_reasoning_effort == "none"
+        assert app.config.openai_reasoning_effort == "none"  # the least: no reasoning at all
 
 
 async def test_a_row_shows_the_providers_effort_only_where_its_model_takes_it(

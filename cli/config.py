@@ -53,10 +53,11 @@ class Config:
     provider: Provider | None = None
     anthropic_api_key: str = ""
     anthropic_model: str = DEFAULT_MODELS["anthropic"]
-    # How hard a provider's model reasons, as `/model`'s arrows set it:
-    # asked for only where the model takes it (`effort`), so a switch to a
-    # model with a shorter scale runs at its own default. Empty leaves it to
-    # the model. The server reads OPENAI_REASONING_EFFORT too.
+    # How hard a provider's model reasons, as `/model`'s arrows set it. What
+    # is asked for is always a level the model takes (`effort`): this one
+    # where it does, else the model's default — so is an empty one, and a
+    # switch to a model with a shorter scale. The server reads
+    # OPENAI_REASONING_EFFORT too.
     anthropic_effort: str = ""
     openai_api_key: str = ""
     openai_base_url: str | None = None
@@ -165,21 +166,14 @@ class Config:
 
     @property
     def effort(self) -> str:
-        """The effort to ask for: the provider's, where the catalogue says
-        the model takes it; empty otherwise, and the model runs at its own."""
+        """The effort to ask for, and so the one the model runs at: the
+        provider's, where the catalogue says the model takes it, else the
+        model's default — always a level on its scale, never left to the
+        API. Empty for a model that takes none, or one the catalogue lacks."""
         model = describe(self.model)
-        if self.provider is None or model is None:
+        if model is None or model.provider != self.provider:
             return ""
-        asked = self.effort_for(self.provider)
-        return asked if asked in model.efforts else ""
-
-    @property
-    def running_effort(self) -> str:
-        """The effort the model runs at, as far as the catalogue knows."""
-        model = describe(self.model)
-        if self.provider is None or model is None:
-            return ""
-        return model.effort_at(self.effort_for(self.provider))
+        return model.effort_at(self.effort_for(model.provider))
 
     def with_model(self, provider: Provider, model: str, effort: str | None = None) -> Config:
         """The model, and the provider's effort when one is given."""

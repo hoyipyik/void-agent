@@ -226,7 +226,7 @@ def test_a_config_written_before_marks_were_three_still_reads() -> None:
     assert Config.from_json({"mcp_signed": ["a"], "mcp_off": ["b"]}).mcp_on == ()
 
 
-def test_the_effort_asked_for_is_the_providers_where_the_model_takes_it() -> None:
+def test_the_effort_asked_for_is_always_a_level_the_model_takes() -> None:
     luna = Config(
         provider="openai",
         openai_api_key="k",
@@ -234,7 +234,15 @@ def test_the_effort_asked_for_is_the_providers_where_the_model_takes_it() -> Non
         openai_reasoning_effort="max",
     )
     assert luna.effort == "max"
-    assert replace(luna, openai_model="gpt-5.5").effort == ""  # takes no max: its own runs
+    assert replace(luna, openai_model="gpt-5.5").effort == "medium"  # takes no max: its default
+    assert replace(luna, openai_reasoning_effort="").effort == "medium"  # none set: its default
+    assert replace(luna, openai_reasoning_effort="none").effort == "none"  # chosen, so asked
+    # GPT-6 Astra always reasons: its scale has no "none", so its default.
+    assert replace(luna, openai_model="gpt-6-astra", openai_reasoning_effort="none").effort == (
+        "medium"
+    )
+    # GPT-5.4 nano runs without reasoning when nothing is asked: it is asked.
+    assert replace(luna, openai_model="gpt-5.4-nano", openai_reasoning_effort="").effort == "low"
     assert replace(luna, openai_model="gpt-unlisted").effort == ""  # nothing known of it
     assert Config(
         provider="anthropic", anthropic_api_key="k", anthropic_effort="xhigh"
@@ -259,7 +267,11 @@ def test_the_anthropic_effort_is_kept_in_the_file(tmp_path: Path) -> None:
 def test_the_request_asks_for_the_effort_and_a_claude_that_takes_one_thinks() -> None:
     openai = Config(provider="openai", openai_api_key="k", openai_reasoning_effort="high")
     assert extra_for(openai) == {"reasoning": {"effort": "high"}}
-    assert extra_for(replace(openai, openai_reasoning_effort="")) is None
+    # Nothing set: the model's default is asked for, never left to the API.
+    assert extra_for(replace(openai, openai_reasoning_effort="")) == {
+        "reasoning": {"effort": "medium"}
+    }
+    assert extra_for(replace(openai, openai_model="gpt-unlisted")) is None
     opus = Config(
         provider="anthropic",
         anthropic_api_key="k",
@@ -271,7 +283,10 @@ def test_the_request_asks_for_the_effort_and_a_claude_that_takes_one_thinks() ->
         "thinking": {"type": "adaptive"},
         "output_config": {"effort": "xhigh"},
     }
-    assert extra_for(replace(opus, anthropic_effort="")) == {"thinking": {"type": "adaptive"}}
+    assert extra_for(replace(opus, anthropic_effort="")) == {
+        "thinking": {"type": "adaptive"},
+        "output_config": {"effort": "high"},
+    }
     assert extra_for(replace(opus, anthropic_model="claude-haiku-4-5")) is None
     assert extra_for(Config(provider="ollama", ollama_model="qwen3:8b")) is None
 

@@ -221,10 +221,14 @@ one way too.
 - The effort is set where the model is: ← and → on a cloud row move
   along the levels that model's API takes (`ModelInfo.efforts`, read
   off each API, model by model), Enter keeps it, Escape keeps nothing.
-  It is stored per provider (`openai_reasoning_effort`,
-  `anthropic_effort`) and asked for only where the model takes it
-  (`Config.effort`) — a model with a shorter scale, or one the catalogue
-  lacks, runs at its own, never into a 400. A Claude model that takes an
+  OpenAI's `none` — no reasoning at all — is the least on the scale of
+  a model that takes it: there to be chosen, never a default. It is
+  stored per provider (`openai_reasoning_effort`, `anthropic_effort`),
+  and what is asked for is always a level the model takes
+  (`Config.effort`) — the provider's where it does, else the model's
+  default, never left to the API, whose own default for some models is
+  that `none`; a model the catalogue lacks is asked for nothing, never
+  into a 400. A Claude model that takes an
   effort thinks adaptively, so the effort is how hard it thinks, as
   OpenAI's is, and only such a model gets the raised `max_tokens` its
   thinking needs (`llm.max_tokens_for`) — one the catalogue lacks may

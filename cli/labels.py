@@ -28,7 +28,7 @@ def model_label(config: Config) -> str:
         return "no model"
     model = alias(config.model) if config.provider == "ollama" else config.model
     label = f"{PROVIDER_LABELS[config.provider]} · {model}"
-    effort = config.running_effort
+    effort = config.effort
     return f"{label} · {effort} effort" if effort else label
 
 

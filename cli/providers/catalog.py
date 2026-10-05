@@ -75,7 +75,11 @@ CATALOG: tuple[ModelInfo, ...] = (
         "efficient: focused, high-volume work",
         True,
         efforts=OR_NONE,
-        default_effort="medium",
+        # Its API's own is medium. Measured on this CLI's agent (2026-10-05),
+        # max got hard problems right 20 times in 24 where medium, high and
+        # xhigh got 12 or 13, for 1.4x the cost on ordinary tasks and 2.4x on
+        # hard ones — of the cheapest model there is.
+        default_effort="max",
     ),
     ModelInfo(
         "openai",

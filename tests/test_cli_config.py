@@ -235,7 +235,7 @@ def test_the_effort_asked_for_is_always_a_level_the_model_takes() -> None:
     )
     assert luna.effort == "max"
     assert replace(luna, openai_model="gpt-5.5").effort == "medium"  # takes no max: its default
-    assert replace(luna, openai_reasoning_effort="").effort == "medium"  # none set: its default
+    assert replace(luna, openai_reasoning_effort="").effort == "max"  # none set: its default
     assert replace(luna, openai_reasoning_effort="none").effort == "none"  # chosen, so asked
     # GPT-6 Astra always reasons: its scale has no "none", so its default.
     assert replace(luna, openai_model="gpt-6-astra", openai_reasoning_effort="none").effort == (
@@ -269,7 +269,7 @@ def test_the_request_asks_for_the_effort_and_a_claude_that_takes_one_thinks() ->
     assert extra_for(openai) == {"reasoning": {"effort": "high"}}
     # Nothing set: the model's default is asked for, never left to the API.
     assert extra_for(replace(openai, openai_reasoning_effort="")) == {
-        "reasoning": {"effort": "medium"}
+        "reasoning": {"effort": "max"}
     }
     assert extra_for(replace(openai, openai_model="gpt-unlisted")) is None
     opus = Config(

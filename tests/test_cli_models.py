@@ -76,3 +76,11 @@ def test_no_reasoning_is_a_choice_never_a_default() -> None:
     for model in CATALOG:
         assert model.default_effort != "none"
         assert "none" not in model.efforts[1:]
+
+
+def test_luna_starts_at_its_most_effort() -> None:
+    """Its API's own is medium. Measured, max is what gets its hard
+    problems right, for a little more of very little."""
+    luna = describe("gpt-6-luna")
+    assert luna is not None
+    assert luna.default_effort == "max"

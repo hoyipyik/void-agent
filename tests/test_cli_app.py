@@ -300,13 +300,13 @@ async def test_left_and_right_set_the_effort_of_the_model_under_the_cursor(tmp_p
         await pilot.pause()
         picker = app.screen
         assert isinstance(picker, ModelPicker)
-        assert "medium" in row(picker, "gpt-6-luna")  # what it runs at when nothing is asked
-        await pilot.press("right", "right")
-        assert "xhigh" in row(picker, "gpt-6-luna")
+        assert "max" in row(picker, "gpt-6-luna")  # what it runs at until it is moved
+        await pilot.press("left", "left", "left", "right")
+        assert "high" in row(picker, "gpt-6-luna")
         await pilot.press("enter")
         await pilot.pause()
-        assert (app.config.model, app.config.openai_reasoning_effort) == ("gpt-6-luna", "xhigh")
-        assert model_label(app.config) == "OpenAI · gpt-6-luna · xhigh effort"
+        assert (app.config.model, app.config.openai_reasoning_effort) == ("gpt-6-luna", "high")
+        assert model_label(app.config) == "OpenAI · gpt-6-luna · high effort"
 
 
 async def test_the_effort_stops_at_the_ends_of_what_the_model_takes(tmp_path: Path) -> None:
@@ -314,7 +314,7 @@ async def test_the_effort_stops_at_the_ends_of_what_the_model_takes(tmp_path: Pa
     async with app.run_test() as pilot:
         await pilot.press(*"/model", "enter")
         await pilot.pause()
-        await pilot.press(*["left"] * 5, "enter")
+        await pilot.press("right", *["left"] * 8, "enter")  # past the most, then past the least
         await pilot.pause()
         assert app.config.openai_reasoning_effort == "none"  # the least: no reasoning at all
 
@@ -347,7 +347,7 @@ async def test_escape_leaves_the_effort_as_it_was(tmp_path: Path) -> None:
     async with app.run_test() as pilot:
         await pilot.press(*"/model", "enter")
         await pilot.pause()
-        await pilot.press("right", "escape")
+        await pilot.press("left", "escape")
         await pilot.pause()
         assert app.config.openai_reasoning_effort == ""
 

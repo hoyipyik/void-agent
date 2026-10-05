@@ -46,6 +46,7 @@ from cli.providers.catalog import (
 from cli.providers.ollama import Ollama, OllamaDown, find_installed, usable
 from cli.registry import AGENTS_DIR, AgentLoadError, Registry, default_registry
 from cli.screens import AgentPicker, KeyPrompt, McpPicker, ModelPicker, SkillPicker
+from cli.screens.model import Picked
 from cli.session import SessionStore
 from cli.shell import Shell
 from cli.widgets.panels import Panel, status_panel
@@ -391,7 +392,7 @@ class VoidApp(App[None]):
         await self.shell.note("Ollama takes no key — pick one of its installed models")
         self._open_picker(rows)
 
-    async def _model_picked(self, choice: tuple[Provider, str] | None) -> None:
+    async def _model_picked(self, choice: Picked | None) -> None:
         if choice is not None:
             await self._switch_model(*choice)
 
@@ -411,8 +412,10 @@ class VoidApp(App[None]):
             return
         await self._switch_model("ollama", found)
 
-    async def _switch_model(self, provider: Provider, model: str) -> None:
-        self._set_config(self.config.with_model(provider, model))
+    async def _switch_model(
+        self, provider: Provider, model: str, effort: str | None = None
+    ) -> None:
+        self._set_config(self.config.with_model(provider, model, effort))
         await self.shell.note(f"model: {model_label(self.config)}")
         if not self.config.configured():
             self.push_screen(

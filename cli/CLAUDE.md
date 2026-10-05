@@ -95,7 +95,8 @@ one way too.
   runner and the writer seams.
 - `providers/` what `/model` lists: `catalog.py` the provider names and
   the cloud catalogue (name, blurb, the recommended default per keyed
-  provider; `provider_of` reads a bare id) · `ollama.py` the local
+  provider, the efforts each takes and its default; `provider_of` reads
+  a bare id) · `ollama.py` the local
   server's own list, read live (`/api/tags`, `/api/show` for what each
   can do) when the picker opens; `alias` is the short name shown,
   `find_installed` checks a bare name; the model itself is the Chat
@@ -217,6 +218,17 @@ one way too.
   Ollama has installed that can call tools (asked when the picker
   opens); a bare `/model <id>` is the escape hatch for one the catalogue
   lacks. The catalogue is a menu, not a fence — never a validation.
+- The effort is set where the model is: ← and → on a cloud row move
+  along the levels that model's API takes (`ModelInfo.efforts`, read
+  off each API, model by model), Enter keeps it, Escape keeps nothing.
+  It is stored per provider (`openai_reasoning_effort`,
+  `anthropic_effort`) and asked for only where the model takes it
+  (`Config.effort`) — a model with a shorter scale, or one the catalogue
+  lacks, runs at its own, never into a 400. A Claude model that takes an
+  effort thinks adaptively, so the effort is how hard it thinks, as
+  OpenAI's is, and only such a model gets the raised `max_tokens` its
+  thinking needs (`llm.max_tokens_for`) — one the catalogue lacks may
+  take less. The status line says the effort it runs at.
 - Ollama is extra, never core. The CLI looks for it itself — at the
   first start's prompt and whenever a picker opens, never in `make
   setup`, which is the Python environment and nothing else — and where

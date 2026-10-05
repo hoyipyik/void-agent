@@ -256,8 +256,9 @@ make cli-build              # dist/void, this checkout's ripgrep inside; FETCH=1
 On first start it asks for a provider and a key — or reads
 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `OLLAMA_MODEL` from the
 environment. `/model` lists the Anthropic and OpenAI models, then whatever
-a local Ollama has installed. Sessions and the config live under `~/.void`;
-`VOID_HOME` moves them.
+a local Ollama has installed; ← and → set how hard the model under the
+cursor reasons, along the levels it takes. Sessions and the config live
+under `~/.void`; `VOID_HOME` moves them.
 
 Three agents come built in; `/agent` switches:
 

@@ -5,10 +5,11 @@ from __future__ import annotations
 
 import os
 import stat
+from dataclasses import replace
 from pathlib import Path
 
 from cli.config import Config, load_config, save_config
-from cli.llm import resolve_llm
+from cli.llm import extra_for, max_tokens_for, resolve_llm
 
 from void_agent.providers.openai import OpenAiLlm
 from void_agent.providers.openai_responses import OpenAiResponsesLlm
@@ -223,3 +224,63 @@ def test_the_states_survive_a_round_trip_through_the_config_file(tmp_path: Path)
 def test_a_config_written_before_marks_were_three_still_reads() -> None:
     """mcp_on is new; a file that predates it has no explicit allowances."""
     assert Config.from_json({"mcp_signed": ["a"], "mcp_off": ["b"]}).mcp_on == ()
+
+
+def test_the_effort_asked_for_is_the_providers_where_the_model_takes_it() -> None:
+    luna = Config(
+        provider="openai",
+        openai_api_key="k",
+        openai_model="gpt-6-luna",
+        openai_reasoning_effort="max",
+    )
+    assert luna.effort == "max"
+    assert replace(luna, openai_model="gpt-5.5").effort == ""  # takes no max: its own runs
+    assert replace(luna, openai_model="gpt-unlisted").effort == ""  # nothing known of it
+    assert Config(
+        provider="anthropic", anthropic_api_key="k", anthropic_effort="xhigh"
+    ).effort == ("xhigh")
+    assert Config(provider="ollama", ollama_model="qwen3:8b").effort == ""
+
+
+def test_switching_the_model_keeps_the_providers_effort_unless_one_is_given() -> None:
+    config = Config(provider="openai", openai_api_key="k", openai_reasoning_effort="high")
+    assert config.with_model("openai", "gpt-5.5").openai_reasoning_effort == "high"
+    assert config.with_model("openai", "gpt-5.5", "low").openai_reasoning_effort == "low"
+    claude = config.with_model("anthropic", "claude-opus-5", "max")
+    assert (claude.anthropic_effort, claude.openai_reasoning_effort) == ("max", "high")
+
+
+def test_the_anthropic_effort_is_kept_in_the_file(tmp_path: Path) -> None:
+    path = tmp_path / "config.json"
+    save_config(path, Config(provider="anthropic", anthropic_api_key="k", anthropic_effort="low"))
+    assert load_config({}, path).anthropic_effort == "low"
+
+
+def test_the_request_asks_for_the_effort_and_a_claude_that_takes_one_thinks() -> None:
+    openai = Config(provider="openai", openai_api_key="k", openai_reasoning_effort="high")
+    assert extra_for(openai) == {"reasoning": {"effort": "high"}}
+    assert extra_for(replace(openai, openai_reasoning_effort="")) is None
+    opus = Config(
+        provider="anthropic",
+        anthropic_api_key="k",
+        anthropic_model="claude-opus-4-8",
+        anthropic_effort="xhigh",
+    )
+    # Opus 4.8 does not think unless told: the effort is how hard it thinks.
+    assert extra_for(opus) == {
+        "thinking": {"type": "adaptive"},
+        "output_config": {"effort": "xhigh"},
+    }
+    assert extra_for(replace(opus, anthropic_effort="")) == {"thinking": {"type": "adaptive"}}
+    assert extra_for(replace(opus, anthropic_model="claude-haiku-4-5")) is None
+    assert extra_for(Config(provider="ollama", ollama_model="qwen3:8b")) is None
+
+
+def test_only_a_claude_that_thinks_gets_room_for_its_thinking() -> None:
+    """The ceiling is raised where thinking spends it, and left the
+    adapter's own everywhere else: a model the catalogue lacks may take
+    less than the raised one and would refuse the request."""
+    opus = Config(provider="anthropic", anthropic_api_key="k", anthropic_model="claude-opus-4-8")
+    assert max_tokens_for(opus) == 64_000
+    assert max_tokens_for(replace(opus, anthropic_model="claude-haiku-4-5")) is None
+    assert max_tokens_for(replace(opus, anthropic_model="claude-unlisted")) is None

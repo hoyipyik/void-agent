@@ -7,8 +7,38 @@ installed."""
 
 from __future__ import annotations
 
+from typing import Any
+
 from cli.config import Config
+from cli.providers.catalog import describe
 from void_agent import Llm
+
+# Room for the thinking a high effort spends: the adapter streams, so a
+# large ceiling costs nothing until it is used.
+THINKING_MAX_TOKENS = 64_000
+
+
+def extra_for(config: Config) -> dict[str, Any] | None:
+    """What the request adds for the configured model: the effort it takes.
+    A Claude model that takes one thinks adaptively — some do only when
+    told — so the effort is how hard it thinks, as OpenAI's is."""
+    effort = config.effort
+    if config.provider == "openai":
+        return {"reasoning": {"effort": effort}} if effort else None
+    model = describe(config.model)
+    if config.provider != "anthropic" or model is None or not model.efforts:
+        return None
+    extra: dict[str, Any] = {"thinking": {"type": "adaptive"}}
+    if effort:
+        extra["output_config"] = {"effort": effort}
+    return extra
+
+
+def max_tokens_for(config: Config) -> int | None:
+    """The ceiling on a Claude answer: raised where the model thinks, None
+    — the adapter's own — everywhere else, since a model the catalogue
+    lacks may take less than the raised one."""
+    return THINKING_MAX_TOKENS if config.provider == "anthropic" and extra_for(config) else None
 
 
 def resolve_llm(config: Config) -> Llm | None:
@@ -20,8 +50,12 @@ def resolve_llm(config: Config) -> Llm | None:
 
         from void_agent.providers.anthropic import AnthropicLlm
 
+        client = AsyncAnthropic(api_key=config.anthropic_api_key)
+        max_tokens = max_tokens_for(config)
+        if max_tokens is None:
+            return AnthropicLlm(config.anthropic_model, client=client)
         return AnthropicLlm(
-            config.anthropic_model, client=AsyncAnthropic(api_key=config.anthropic_api_key)
+            config.anthropic_model, client=client, max_tokens=max_tokens, extra=extra_for(config)
         )
     from openai import AsyncOpenAI
 
@@ -34,9 +68,4 @@ def resolve_llm(config: Config) -> Llm | None:
     from void_agent.providers.openai_responses import OpenAiResponsesLlm
 
     client = AsyncOpenAI(api_key=config.openai_api_key, base_url=config.openai_base_url)
-    extra = (
-        {"reasoning": {"effort": config.openai_reasoning_effort}}
-        if config.openai_reasoning_effort
-        else None
-    )
-    return OpenAiResponsesLlm(config.openai_model, client=client, extra=extra)
+    return OpenAiResponsesLlm(config.openai_model, client=client, extra=extra_for(config))

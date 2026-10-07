@@ -27,7 +27,8 @@ src/void_agent/providers anthropic.py / openai_responses.py (OpenAI, stateless)
                          SDK types stay inside
 src/void_agent/mcp       the bridge: an MCP server's tools as `Tool`s
                          (server.py mounts and discovers, result.py maps a
-                         CallToolResult); the approval is declared by the
+                         CallToolResult, fingerprint.py hashes what a
+                         server published); the approval is declared by the
                          caller, never by the server; SDK types stay inside
 src/void_agent/skills    a folder of instructions as tools: only the
                          description stays in context, the body arrives on
@@ -107,10 +108,17 @@ that mounts an agent is an application above it.
   (`readOnlyHint`, …) are its word — readable through `describe`, never a
   decision. So are its instructions: `McpServer.instructions` hands them
   over, and no prompt gets them unless whoever mounted the server puts
-  them there. Mounting is a lifecycle, not a call: the connection opens
-  once and outlives the per-turn agent, so `McpServer` is an async
-  context manager. An HTTP server's authentication is a `headers`
-  mapping on the spec, nothing more.
+  them there. What the bridge adds is a way to see that the server's word
+  changed: `fingerprint(name)` and `instructions_fingerprint` hash what it
+  sent at this mount, and `read_only_hint(name)` hands over that one hint
+  in our own types. Comparing them with a pin, and what follows from a
+  mismatch, is the caller's. The rule of the hash (`mcp/fingerprint.py`:
+  five fields, RFC 8785, `tests/mcp_fingerprint_vectors.json`) is shared
+  with the servers that publish by it — change the rule and the examples
+  on both sides together, or not at all. Mounting is a lifecycle, not a
+  call: the connection opens once and outlives the per-turn agent, so
+  `McpServer` is an async context manager. An HTTP server's
+  authentication is a `headers` mapping on the spec, nothing more.
 - A skill brings knowledge, a tool brings capability, and the line does
   not move. `void_agent/skills` turns a folder of Markdown into tools
   whose whole effect is text in the transcript: no side effect, nothing

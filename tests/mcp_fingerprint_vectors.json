@@ -1,0 +1,129 @@
+{
+  "tools": [
+    {
+      "tool": {
+        "name": "ping",
+        "title": "Ping",
+        "description": "Answers pong.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        },
+        "annotations": {
+          "title": "Ping",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true
+        }
+      },
+      "line": "{\"description\":\"Answers pong.\",\"destructiveHint\":false,\"inputSchema\":{\"properties\":{},\"type\":\"object\"},\"name\":\"ping\",\"readOnlyHint\":true}",
+      "fingerprint": "sha256:5277bef45659eb5368dec4d7d52cd30c474d9d1e0ca473a38cf17fd4c4a8ab19"
+    },
+    {
+      "tool": {
+        "name": "bare",
+        "inputSchema": {
+          "type": "object"
+        }
+      },
+      "line": "{\"description\":null,\"destructiveHint\":null,\"inputSchema\":{\"type\":\"object\"},\"name\":\"bare\",\"readOnlyHint\":null}",
+      "fingerprint": "sha256:a8f1cd337f8c116b485b2ab7db4d9262a708d291aca9d635ad1d4e3e05fe8460"
+    },
+    {
+      "tool": {
+        "name": "void_invoice",
+        "description": "作廢一張發票 🧾，不能復原。\nUse the UUID, never the code \"AK-1\".",
+        "inputSchema": {
+          "type": "object",
+          "required": [
+            "invoiceId",
+            "reason"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "invoiceId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "additionalProperties": false
+        },
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true
+        },
+        "_meta": {
+          "anything": "is left out"
+        }
+      },
+      "line": "{\"description\":\"作廢一張發票 🧾，不能復原。\\nUse the UUID, never the code \\\"AK-1\\\".\",\"destructiveHint\":true,\"inputSchema\":{\"additionalProperties\":false,\"properties\":{\"invoiceId\":{\"format\":\"uuid\",\"type\":\"string\"},\"reason\":{\"maxLength\":200,\"minLength\":1,\"type\":\"string\"}},\"required\":[\"invoiceId\",\"reason\"],\"type\":\"object\"},\"name\":\"void_invoice\",\"readOnlyHint\":false}",
+      "fingerprint": "sha256:b0dbdbc2d0cefdd5b8a8aa5f636eadbfcf5e2706a25e273442bdb9bd8cb88b59"
+    },
+    {
+      "tool": {
+        "name": "numbers",
+        "description": "Every way a number is written.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "amount": {
+              "type": "number",
+              "multipleOf": 0.01,
+              "minimum": 1e-06,
+              "maximum": 1e+21
+            },
+            "tiny": {
+              "type": "number",
+              "exclusiveMinimum": 1e-07,
+              "default": -1.5
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "whole": {
+              "type": "number",
+              "default": 100.0
+            }
+          }
+        },
+        "annotations": {
+          "readOnlyHint": true
+        }
+      },
+      "line": "{\"description\":\"Every way a number is written.\",\"destructiveHint\":null,\"inputSchema\":{\"properties\":{\"amount\":{\"maximum\":1e+21,\"minimum\":0.000001,\"multipleOf\":0.01,\"type\":\"number\"},\"offset\":{\"maximum\":9007199254740991,\"minimum\":0,\"type\":\"integer\"},\"tiny\":{\"default\":-1.5,\"exclusiveMinimum\":1e-7,\"type\":\"number\"},\"whole\":{\"default\":100,\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"numbers\",\"readOnlyHint\":true}",
+      "fingerprint": "sha256:10a03cbeebd19ecd80d6bfe517021fc3d4fac8c8312bd999cfb6d0a1e0859104"
+    },
+    {
+      "tool": {
+        "name": "key_order",
+        "description": "Keys sort by UTF-16 code unit, so the emoji comes before U+FFFF.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "￿": {},
+            "😀": {},
+            "a": {},
+            "B": {},
+            "": {}
+          }
+        },
+        "annotations": {
+          "readOnlyHint": true,
+          "destructiveHint": false
+        }
+      },
+      "line": "{\"description\":\"Keys sort by UTF-16 code unit, so the emoji comes before U+FFFF.\",\"destructiveHint\":false,\"inputSchema\":{\"properties\":{\"\":{},\"B\":{},\"a\":{},\"😀\":{},\"￿\":{}},\"type\":\"object\"},\"name\":\"key_order\",\"readOnlyHint\":true}",
+      "fingerprint": "sha256:c5a52c0b299d59e176dac27e11af412dbe0e1719ac59a5c9f5cd0d326e060374"
+    }
+  ],
+  "instructions": {
+    "text": "A sales ERP. Every tool is read-only.\n\n訂單：PI → SI → DN。",
+    "fingerprint": "sha256:ebcf4fdea16a9c866fd2f11f3d52796ccb15a0c5ff8dbba836c611bd7d7b09f5"
+  }
+}

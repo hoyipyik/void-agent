@@ -198,9 +198,13 @@ async def with_files() -> None:
 ```
 
 - `McpServer.stdio(command, *args, env=…)` runs a server as a subprocess;
-  `McpServer.http(url, headers=…)` connects to a hosted one, `headers`
-  carrying its token. Keep the `async with` open for as long as the agent
-  may run: the connection is a lifecycle, not a call.
+  `McpServer.http(url, headers=…, timeout=…)` connects to a hosted one,
+  `headers` carrying its token. Keep the `async with` open for as long as
+  the agent may run: the connection is a lifecycle, not a call.
+- `timeout` is the seconds a hosted server may take to be mounted and to
+  answer each call. Without it the waits are the SDK's own, and one stuck
+  call holds a turn for five minutes. A call that runs out fails the run
+  like any broken transport; the model is not told.
 - `files.names` lists the tools; `files.describe(name)` is the server's own
   descriptor; `files.tool(name, approval=…)` mounts one;
   `files.tools(approvals={…}, prefix="files__")` mounts them all, namespaced

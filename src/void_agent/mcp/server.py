@@ -9,6 +9,7 @@ the server every turn.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping, Sequence
 from contextlib import AsyncExitStack
 from pathlib import Path
@@ -44,6 +45,7 @@ class McpServer:
         # Set only by `http(…)`.
         self._url: str | None = None
         self._headers: dict[str, str] = {}
+        self._timeout: float | None = None
 
     @classmethod
     def stdio(
@@ -69,11 +71,24 @@ class McpServer:
         return server
 
     @classmethod
-    def http(cls, url: str, *, headers: Mapping[str, str] | None = None) -> McpServer:
+    def http(
+        cls,
+        url: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> McpServer:
         """A server reached over HTTP. `headers` carries whatever it wants
-        for authentication — a bearer token, an API key — on every request."""
+        for authentication — a bearer token, an API key — on every request.
+
+        `timeout` is the seconds the server may take: to be mounted, and to
+        answer each call after that. A mount that takes longer is
+        `McpUnreachable`; a call that does fails like any broken transport,
+        and the model is not told. Left out, the waits are the SDK's own —
+        half a minute to connect and five minutes for an answer, which is
+        how long one stuck call then holds a turn."""
         server = cls()
-        server._url, server._headers = url, dict(headers or {})
+        server._url, server._headers, server._timeout = url, dict(headers or {}), timeout
         return server
 
     async def __aenter__(self) -> McpServer:
@@ -88,12 +103,17 @@ class McpServer:
         # arrives: the SDK does not pass it on.
         answers: list[int] = []
         try:
-            session: Any = await stack.enter_async_context(await self._client_on(stack, answers))
-            self._session, self._instructions = session, session.instructions
-            self._descriptors = {tool.name: tool for tool in await self._discover()}
-            self._fingerprints = {
-                name: _fingerprint_of(tool) for name, tool in self._descriptors.items()
-            }
+            # The whole mount, not each request of it: the SDK's handshake
+            # asks twice, and waits for the first on a clock of its own.
+            async with asyncio.timeout(self._timeout):
+                session: Any = await stack.enter_async_context(
+                    await self._client_on(stack, answers)
+                )
+                self._session, self._instructions = session, session.instructions
+                self._descriptors = {tool.name: tool for tool in await self._discover()}
+                self._fingerprints = {
+                    name: _fingerprint_of(tool) for name, tool in self._descriptors.items()
+                }
         except Exception as raised:
             self._forget()
             await stack.aclose()
@@ -134,7 +154,10 @@ class McpServer:
             http = create_mcp_http_client(headers=self._headers or None)
             http.event_hooks = {"response": [note]}
             await stack.enter_async_context(http)
-            return Client(streamable_http_client(self._url, http_client=http))
+            return Client(
+                streamable_http_client(self._url, http_client=http),
+                read_timeout_seconds=self._timeout,
+            )
         if self._parameters is not None and self._errlog is not None:
             errlog: TextIO
             if isinstance(self._errlog, Path):

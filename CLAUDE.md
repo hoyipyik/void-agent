@@ -105,7 +105,9 @@ that mounts an agent is an application above it.
   seam: a contract written elsewhere), and whether a call must be signed
   is declared by whoever mounted it. A server's own hints
   (`readOnlyHint`, …) are its word — readable through `describe`, never a
-  decision. Mounting is a lifecycle, not a call: the connection opens
+  decision. So are its instructions: `McpServer.instructions` hands them
+  over, and no prompt gets them unless whoever mounted the server puts
+  them there. Mounting is a lifecycle, not a call: the connection opens
   once and outlives the per-turn agent, so `McpServer` is an async
   context manager. An HTTP server's authentication is a `headers`
   mapping on the spec, nothing more.

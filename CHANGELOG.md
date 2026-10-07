@@ -38,7 +38,9 @@ Everything — the framework has not been released yet.
   Completions to any compatible server. The CLI uses the first for OpenAI,
   the second for Ollama.
 - `void_agent.mcp`: an MCP server's tools as `Tool`s, the approval declared
-  by whoever mounts it. `void_agent.skills`: a folder of Markdown as tools
+  by whoever mounts it. A server's own instructions are handed over
+  (`McpServer.instructions`) and put in no prompt by the bridge.
+  `void_agent.skills`: a folder of Markdown as tools
   whose whole effect is text in the transcript.
 - The terminal UI (`cli/`, repo-only): the runtime in-process, the
   protocol rendered from parts, cards answered with the keys, the model's

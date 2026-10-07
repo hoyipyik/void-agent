@@ -45,6 +45,26 @@ async def test_the_tools_are_discovered_once_when_the_server_is_mounted() -> Non
     assert fake.listed == 1
 
 
+async def test_a_mounted_server_hands_over_the_instructions_it_gave() -> None:
+    fake = FakeMcp([descriptor("write_file")], instructions="Paths are relative to the root.")
+    async with McpServer(client=fake) as server:
+        assert server.instructions == "Paths are relative to the root."
+
+
+async def test_a_server_that_gave_no_instructions_has_none() -> None:
+    fake = FakeMcp([descriptor("write_file")])
+    async with McpServer(client=fake) as server:
+        assert server.instructions is None
+
+
+async def test_the_instructions_go_with_the_server_when_it_is_unmounted() -> None:
+    fake = FakeMcp([descriptor("write_file")], instructions="Paths are relative to the root.")
+    server = McpServer(client=fake)
+    async with server:
+        pass
+    assert server.instructions is None
+
+
 async def test_the_session_is_opened_and_closed_around_the_block() -> None:
     fake = FakeMcp([descriptor("write_file")])
     async with McpServer(client=fake):

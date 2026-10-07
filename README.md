@@ -205,6 +205,9 @@ async def with_files() -> None:
   descriptor; `files.tool(name, approval=…)` mounts one;
   `files.tools(approvals={…}, prefix="files__")` mounts them all, namespaced
   so two servers can both offer `search`.
+- `files.instructions` is what the server said of itself when it was
+  mounted — how its tools go together — or `None`. The bridge puts it in
+  no prompt: it is yours to pass to `with_system`, or to leave out.
 - A gated call is put to whoever attends the run (`agent.run(…, human=…)`).
   With nobody attending, the turn ends with the card open instead of running
   it — the model never decides whether a side effect runs.

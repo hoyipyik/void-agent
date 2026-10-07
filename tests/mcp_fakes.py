@@ -34,11 +34,13 @@ class FakeMcp:
         tools: list[McpTool],
         result: CallToolResult | None = None,
         failure: Exception | None = None,
+        instructions: str | None = None,
     ) -> None:
         self.calls: list[tuple[str, dict[str, Any] | None]] = []
         self.open = False
         self.closed = False
         self.listed = 0
+        self.instructions = instructions
         self._tools = tools
         self._result = result or text_result("written")
         self._failure = failure

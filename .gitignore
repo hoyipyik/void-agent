@@ -13,3 +13,6 @@ build/
 
 # a Claude Code session's worktrees and local settings
 .claude/
+
+# the CLI reading guide: local, published as an artifact instead
+doc/cli-guide.html

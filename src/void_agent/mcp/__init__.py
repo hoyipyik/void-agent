@@ -19,7 +19,15 @@ stays inside `providers/`. `import mcp` in these modules is the absolute
 import of the SDK, never of this package.
 """
 
+from void_agent.mcp.failure import McpMountFailed, McpNotFound, McpUnauthorized, McpUnreachable
 from void_agent.mcp.result import McpUnknownTool
 from void_agent.mcp.server import McpServer
 
-__all__ = ["McpServer", "McpUnknownTool"]
+__all__ = [
+    "McpMountFailed",
+    "McpNotFound",
+    "McpServer",
+    "McpUnauthorized",
+    "McpUnknownTool",
+    "McpUnreachable",
+]

@@ -17,6 +17,7 @@ from typing import Any, NoReturn, TextIO
 from mcp import Client, StdioServerParameters, stdio_client
 from mcp import Tool as McpTool
 from void_agent.core.tool import Approval, Tool
+from void_agent.mcp.failure import mount_failure
 from void_agent.mcp.fingerprint import text_fingerprint, tool_fingerprint
 from void_agent.mcp.result import McpUnknownTool, value_of
 
@@ -27,8 +28,9 @@ class McpServer:
     """One MCP server's tools, as this runtime's `Tool`s."""
 
     def __init__(self, client: Any = None) -> None:
-        # None only from `stdio(..., errlog=…)`, which builds its transport
-        # in `__aenter__` so the log file's lifetime is the server's.
+        # None from `http(…)` and `stdio(..., errlog=…)`, which build their
+        # transport in `__aenter__`: the HTTP client and the log file live
+        # exactly as long as the server is mounted.
         self._client = client
         self._session: Any | None = None
         self._stack: AsyncExitStack | None = None
@@ -39,6 +41,9 @@ class McpServer:
         # `__aenter__`, where the log file's lifetime can be the server's.
         self._parameters: StdioServerParameters | None = None
         self._errlog: Path | TextIO | None = None
+        # Set only by `http(…)`.
+        self._url: str | None = None
+        self._headers: dict[str, str] = {}
 
     @classmethod
     def stdio(
@@ -67,40 +72,34 @@ class McpServer:
     def http(cls, url: str, *, headers: Mapping[str, str] | None = None) -> McpServer:
         """A server reached over HTTP. `headers` carries whatever it wants
         for authentication — a bearer token, an API key — on every request."""
-        if not headers:
-            return cls(Client(url))
-        from mcp.client.streamable_http import streamable_http_client
-        from mcp.shared._httpx_utils import create_mcp_http_client
-
-        return cls(
-            Client(
-                streamable_http_client(
-                    url, http_client=create_mcp_http_client(headers=dict(headers))
-                )
-            )
-        )
+        server = cls()
+        server._url, server._headers = url, dict(headers or {})
+        return server
 
     async def __aenter__(self) -> McpServer:
+        """Mounted, or `McpMountFailed`: whatever stops a mount is filed as
+        one (`failure.py`) — a refused token, an address with no MCP and a
+        server that is not there each a kind of their own. Cancellation is
+        never one of them."""
+        if self._client is None and self._parameters is None and self._url is None:
+            raise RuntimeError("an McpServer needs a client, a command or a URL")
         stack = AsyncExitStack()
+        # The status of each answer to the mount's requests, noted where it
+        # arrives: the SDK does not pass it on.
+        answers: list[int] = []
         try:
-            client = self._client
-            if self._parameters is not None and self._errlog is not None:
-                errlog: TextIO
-                if isinstance(self._errlog, Path):
-                    self._errlog.parent.mkdir(parents=True, exist_ok=True)
-                    errlog = stack.enter_context(self._errlog.open("w", encoding="utf-8"))
-                else:
-                    errlog = self._errlog
-                client = Client(stdio_client(self._parameters, errlog=errlog))
-            if client is None:
-                raise RuntimeError("an McpServer needs a client or stdio parameters")
-            self._session = await stack.enter_async_context(client)
-            self._instructions = self._session.instructions
+            session: Any = await stack.enter_async_context(await self._client_on(stack, answers))
+            self._session, self._instructions = session, session.instructions
             self._descriptors = {tool.name: tool for tool in await self._discover()}
             self._fingerprints = {
                 name: _fingerprint_of(tool) for name, tool in self._descriptors.items()
             }
+        except Exception as raised:
+            self._forget()
+            await stack.aclose()
+            raise mount_failure(raised, answers) from raised
         except BaseException:
+            self._forget()
             await stack.aclose()
             raise
         self._stack = stack
@@ -109,10 +108,42 @@ class McpServer:
     async def __aexit__(self, *args: object) -> None:
         """Closing never suppresses: a failure inside the block is the
         caller's, and the connection goes down either way."""
-        stack, self._stack, self._session = self._stack, None, None
-        self._descriptors, self._fingerprints, self._instructions = {}, {}, None
+        stack, self._stack = self._stack, None
+        self._forget()
         if stack is not None:
             await stack.aclose()
+
+    def _forget(self) -> None:
+        """What a mount learned goes with the mount."""
+        self._session = None
+        self._descriptors, self._fingerprints, self._instructions = {}, {}, None
+
+    async def _client_on(self, stack: AsyncExitStack, answers: list[int]) -> Any:
+        """The SDK's client for this server. What it needs for as long as
+        it is mounted — a log file, an HTTP client — is opened on `stack`."""
+        if self._url is not None:
+            from mcp.client.streamable_http import streamable_http_client
+            from mcp.shared._httpx_utils import create_mcp_http_client
+
+            async def note(response: Any) -> None:
+                # A message is a POST; the stream a server may hold open and
+                # the goodbye on the way out are not answers to the mount.
+                if response.request.method == "POST":
+                    answers.append(response.status_code)
+
+            http = create_mcp_http_client(headers=self._headers or None)
+            http.event_hooks = {"response": [note]}
+            await stack.enter_async_context(http)
+            return Client(streamable_http_client(self._url, http_client=http))
+        if self._parameters is not None and self._errlog is not None:
+            errlog: TextIO
+            if isinstance(self._errlog, Path):
+                self._errlog.parent.mkdir(parents=True, exist_ok=True)
+                errlog = stack.enter_context(self._errlog.open("w", encoding="utf-8"))
+            else:
+                errlog = self._errlog
+            return Client(stdio_client(self._parameters, errlog=errlog))
+        return self._client
 
     @property
     def names(self) -> tuple[str, ...]:

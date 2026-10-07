@@ -45,7 +45,11 @@ Everything — the framework has not been released yet.
   catalog can pin a tool and see that its server changed it; the
   instructions have one too (`instructions_fingerprint`), and
   `read_only_hint(name)` is the server's own word on whether a tool only
-  reads.
+  reads. A mount that fails is `McpMountFailed`, with a kind of its own
+  for a refused token (`McpUnauthorized`), an address with no MCP
+  (`McpNotFound`) and a server that is not there (`McpUnreachable`): the
+  SDK raised a nested exception group for all of them and folded a 401
+  into the same error as a 500.
   `void_agent.skills`: a folder of Markdown as tools
   whose whole effect is text in the transcript.
 - The terminal UI (`cli/`, repo-only): the runtime in-process, the

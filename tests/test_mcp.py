@@ -22,7 +22,7 @@ from void_agent import (
     attended,
     public_text,
 )
-from void_agent.mcp import McpServer, McpUnknownTool
+from void_agent.mcp import McpMountFailed, McpServer, McpUnknownTool, McpUnreachable
 
 # The examples a publisher's own script is tested on, byte for byte.
 VECTORS: dict[str, Any] = json.loads(
@@ -309,7 +309,49 @@ async def test_a_servers_own_noise_can_be_sent_somewhere_other_than_the_terminal
         "import sys; sys.stderr.write('server said something\\n'); sys.exit(3)",
         errlog=log,
     )
-    with pytest.raises(Exception):  # noqa: B017 - it never speaks the protocol
+    with pytest.raises(McpMountFailed):  # it never speaks the protocol
         async with server:
             pass
     assert "server said something" in log.read_text(encoding="utf-8")
+
+
+class Unlistable(FakeMcp):
+    """A client that connects and then cannot say what it offers."""
+
+    async def list_tools(self) -> Any:
+        raise ValueError("the list is not one")
+
+
+async def test_whatever_stops_a_mount_is_a_failed_mount_in_its_own_words() -> None:
+    with pytest.raises(McpMountFailed) as failed:
+        async with McpServer(client=Unlistable([descriptor("write_file")])):
+            pass
+    assert type(failed.value) is McpMountFailed
+    assert str(failed.value) == "the list is not one"
+    assert failed.value.status is None
+    assert isinstance(failed.value.__cause__, ValueError)
+
+
+async def test_a_mount_that_failed_half_way_leaves_nothing_mounted() -> None:
+    fake = Unlistable([descriptor("write_file")])
+    server = McpServer(client=fake)
+    with pytest.raises(McpMountFailed):
+        async with server:
+            pass
+    assert fake.closed
+    assert server.names == ()
+    with pytest.raises(RuntimeError, match="not mounted"):
+        server.tool("write_file")
+
+
+async def test_a_command_that_is_not_there_is_unreachable() -> None:
+    with pytest.raises(McpUnreachable) as absent:
+        async with McpServer.stdio("void-agent-has-no-such-command"):
+            pass
+    assert "void-agent-has-no-such-command" in str(absent.value)
+
+
+async def test_a_server_with_nothing_to_mount_is_a_mistake_and_not_a_failed_mount() -> None:
+    with pytest.raises(RuntimeError, match="needs a client"):
+        async with McpServer():
+            pass

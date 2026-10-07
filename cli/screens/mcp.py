@@ -161,16 +161,21 @@ class McpPicker(Switchboard):
         return option_id.startswith("server:")
 
     def selected(self, option_id: str) -> None:
-        super().selected(option_id)
         if not option_id.startswith("server:"):
+            super().selected(option_id)
             self._refresh_blurb()
             return
         name = option_id.partition(":")[2]
+        # What the board held of it — its tools, why it failed — was the
+        # process's that is going. Switched on, a server is starting until
+        # the app hands back what the bench holds: the row says so, and the
+        # heading must not count it up before then.
+        self._catalog = [info for info in self._catalog if info.server != name]
+        self._failure.pop(name, None)
+        self._mounting = self._mounting or self._states[option_id] == "off"
+        super().selected(option_id)
         # Applied now, so it is no longer a change the board has to report.
         self._initial[option_id] = self._states[option_id]
-        # A server switched on is starting until the app hands back what
-        # the bench holds; the heading must not count it up before then.
-        self._mounting = self._mounting or self._states[option_id] == "on"
         self._refresh_blurb()
         self.post_message(self.ServerToggled(name, self._states[option_id]))
 

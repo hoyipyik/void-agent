@@ -353,6 +353,27 @@ async def test_the_universal_agent_carries_the_mounted_mcp_tools() -> None:
         await bench.close()
 
 
+async def test_a_server_switched_off_hands_the_next_turn_none_of_its_tools() -> None:
+    """The switch is the person's word, and it lands when it is thrown: a
+    server still on its way down — its stop waiting behind another one's
+    start — is already out of the agent."""
+    from cli.mcp import Bench, ServerSpec
+    from tests.mcp_fakes import FakeMcp, descriptor
+
+    from void_agent.mcp import McpServer
+
+    bench = Bench(opener=lambda spec: McpServer(client=FakeMcp([descriptor("write_file")])))
+    await bench.open((ServerSpec(name="files", command="npx", default="on"),))
+    registry = Registry(bench=bench)
+    try:
+        config = Config(agent="universal")
+        assert "files__write_file" in registry.build_agent(config).tool_names
+        off = registry.build_agent(config.with_server_state("files", "off"))
+        assert "files__write_file" not in off.tool_names
+    finally:
+        await bench.close()
+
+
 async def test_every_agent_gets_the_same_mcp_tools_not_just_the_universal_one(
     tmp_path: Path,
 ) -> None:

@@ -112,7 +112,8 @@ one way too.
   a TUI is the canvas being drawn on), discovers their tools as
   `<server>__<tool>`, and hands the registry the enabled ones, gated
   where the person marked them; a server the person turned off is never
-  started, and toggling one remounts the bench. A server that goes down
+  started, and toggling one starts or stops that one alone (`start`,
+  `stop`), the others left up with their tools. A server that goes down
   while mounted — its connection cut, its process gone — loses its tools
   on the next turn, is named in `failures` (`dropped — …`) and told to
   the app (`on_drop`), the others staying up; nothing a server does, up
@@ -263,10 +264,16 @@ one way too.
   `mcp.json` keeps meaning something.
 - A switch takes effect where it is thrown. A tool's mark lands on the
   next turn (the agent is rebuilt every one); a server's lands at once —
-  `McpPicker.ServerToggled` goes up to the app, which remounts and hands
-  the board back what the bench holds, so its tools appear or vanish
-  under the cursor. A board open while the first mount is still running
-  fills in by itself when it lands.
+  `McpPicker.ServerToggled` goes up to the app, which starts or stops
+  that server alone on a task of its own and hands the board back what
+  the bench holds when it lands, so its tools appear or vanish under the
+  cursor. The switch is never awaited where it is thrown: the app's pump
+  is where every key comes in, and a server takes seconds to come up.
+  The row reads `starting…` meanwhile; a board closed before then leaves
+  the log to say it (`mcp: starting docs…`, `mcp: docs up — 3 tools`).
+  A server switched off is out of the next turn at once, whether or not
+  its process is down yet (`Registry._mounted`). A board open while the
+  first mount is still running fills in by itself when it lands.
 - `/mcp` opens on `mcp.json` re-read. An entry added or changed since
   the servers were mounted restarts them, the board filling in when
   that lands; an unchanged file restarts nothing — looking is not a

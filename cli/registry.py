@@ -351,7 +351,15 @@ class Registry:
     def _mounted(self, config: Config) -> tuple[Tool, ...]:
         tools: tuple[Tool, ...] = ()
         if self.bench is not None:
-            tools += self.bench.tools(state=lambda info: config.tool_state(info.id, info.default))
+            # A server switched off has no tools from that moment, whether
+            # or not its process is down yet.
+            tools += self.bench.tools(
+                state=lambda info: (
+                    "off"
+                    if config.server_state(info.server) == "off"
+                    else config.tool_state(info.id, info.default)
+                )
+            )
         kept = config.enabled_skills(info.id for info in self.skills)
         return tools + tools_for([info for info in self.skills if info.id in kept])
 

@@ -39,7 +39,7 @@ class McpNotFound(McpMountFailed):
 
 class McpUnreachable(McpMountFailed):
     """Nothing answered: the connection was refused, the host is unknown,
-    or the process would not start."""
+    the process would not start, or the mount's `timeout` ran out."""
 
 
 # What a transport raises when there was no answer to read a status from.
@@ -50,7 +50,7 @@ def mount_failure(raised: Exception, answers: Sequence[int]) -> McpMountFailed:
     """What stopped the mount, filed. `answers` are the statuses the server
     gave the mount's requests, in order: the last one is what ended it."""
     leaves = tuple(_leaves(raised))
-    said = "; ".join(str(leaf) or type(leaf).__name__ for leaf in leaves)
+    said = "; ".join(_words(leaf) for leaf in leaves)
     status = answers[-1] if answers and answers[-1] >= 400 else None
     if status == 401:
         return McpUnauthorized(
@@ -63,6 +63,14 @@ def mount_failure(raised: Exception, answers: Sequence[int]) -> McpMountFailed:
     if any(isinstance(leaf, NO_ANSWER) for leaf in leaves):
         return McpUnreachable(said)
     return McpMountFailed(said)
+
+
+def _words(leaf: BaseException) -> str:
+    """What one failure says. The mount's own deadline says nothing, and
+    neither do some of the HTTP client's errors: those are their name."""
+    if isinstance(leaf, TimeoutError) and not str(leaf):
+        return "the server did not answer in time"
+    return str(leaf) or type(leaf).__name__
 
 
 def _leaves(raised: BaseException) -> Iterator[BaseException]:

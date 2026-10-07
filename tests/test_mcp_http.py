@@ -1,8 +1,9 @@
 """The bridge over a real HTTP transport: the token a mount carries, what a
-server sent over the wire, and what a mount that fails is. Whoever mounts a
-server takes a different road for each failure — a refused token is asked
-for again, a server that is not there is simply down — so each is a type
-of ours, never the SDK's exception group."""
+server sent over the wire, what a mount that fails is, and how long a
+server may take. Whoever mounts a server takes a different road for each
+failure — a refused token is asked for again, a server that is not there
+is simply down — so each is a type of ours, never the SDK's exception
+group."""
 
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ from tests.mcp_http import (
     silent,
 )
 
-from void_agent import EventSender
+from void_agent import EventSender, Internal, public_text
 from void_agent.mcp import (
     McpMountFailed,
     McpNotFound,
@@ -149,3 +150,46 @@ async def test_cancelling_a_mount_is_cancellation_and_not_a_failed_mount() -> No
         mounting.cancel()
         with pytest.raises(asyncio.CancelledError):
             await mounting
+
+
+# Long enough for a server on this machine to answer, short enough that a
+# test of one that never does is over at once.
+SOON = 0.5
+
+
+async def test_a_server_that_does_not_answer_the_mount_in_time_is_unreachable() -> None:
+    async with serving(silent) as url:
+        with pytest.raises(McpUnreachable) as late:
+            async with McpServer.http(f"{url}/mcp", headers=BEARER, timeout=SOON):
+                pass
+    assert "in time" in str(late.value)
+    assert late.value.status is None
+
+
+async def test_a_call_the_server_does_not_answer_in_time_fails_and_stays_internal() -> None:
+    """A stuck call must not hold the turn for the SDK's five minutes. Like
+    any transport failure it is not the model's business: the run fails."""
+    published = Published(stalls=frozenset({"numbers"}))
+    async with (
+        serving(published) as url,
+        McpServer.http(f"{url}/mcp", headers=BEARER, timeout=SOON) as server,
+    ):
+        with pytest.raises(Internal) as internal:
+            await server.tool("numbers").invoke({}, EventSender())
+        published.release()
+    assert "timed out" in str(internal.value)
+    assert "timed out" not in public_text(internal.value)
+
+
+async def test_a_server_that_answers_in_time_is_not_hurried() -> None:
+    published = Published(stalls=frozenset({"numbers"}))
+    async with (
+        serving(published) as url,
+        McpServer.http(f"{url}/mcp", headers=BEARER, timeout=SOON) as server,
+    ):
+        assert await server.tool("ping").invoke({}, EventSender()) == "pong"
+        with pytest.raises(Internal):
+            await server.tool("numbers").invoke({}, EventSender())
+        # The call that timed out cost only itself: the next one is answered.
+        assert await server.tool("ping").invoke({}, EventSender()) == "pong"
+        published.release()

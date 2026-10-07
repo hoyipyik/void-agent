@@ -125,7 +125,8 @@ that mounts an agent is an application above it.
   exception group: a caller takes a different road for each, and must not
   have to read the SDK's types to choose it. Cancellation is never filed
   as one. A transport that breaks after the mount is still not the
-  model's business: it raises, and `Tool.invoke` files it as `Internal`.
+  model's business: it raises, and `Tool.invoke` files it as `Internal` —
+  a call that outlasts the mount's `timeout` included.
 - A skill brings knowledge, a tool brings capability, and the line does
   not move. `void_agent/skills` turns a folder of Markdown into tools
   whose whole effect is text in the transcript: no side effect, nothing

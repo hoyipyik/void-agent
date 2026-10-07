@@ -33,16 +33,20 @@ BEARER = {"Authorization": f"Bearer {TOKEN}"}
 
 class Published:
     """A server that publishes the shared examples as its tools, behind a
-    bearer token, and remembers every token it was shown."""
+    bearer token, and remembers every token it was shown. A call to one of
+    `stalls` is taken and not answered until `release()`."""
 
-    def __init__(self) -> None:
+    def __init__(self, stalls: frozenset[str] = frozenset()) -> None:
         self.shown: list[str | None] = []
+        self._released = asyncio.Event()
         tools = [McpTool.model_validate(example["tool"]) for example in VECTORS["tools"]]
 
         async def list_tools(context: Any, params: Any) -> ListToolsResult:
             return ListToolsResult(tools=tools)
 
         async def call_tool(context: Any, params: Any) -> CallToolResult:
+            if params.name in stalls:
+                await self._released.wait()
             return CallToolResult(content=[TextContent(type="text", text="pong")])
 
         server = Server(
@@ -61,6 +65,10 @@ class Published:
                 await _answer(send, 401)
                 return
         await self._mcp(scope, receive, send)
+
+    def release(self) -> None:
+        """Let every stalled call answer, so the server can close."""
+        self._released.set()
 
 
 def answering(status: int) -> ASGIApp:

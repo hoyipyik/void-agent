@@ -17,6 +17,7 @@ from typing import Any, NoReturn, TextIO
 from mcp import Client, StdioServerParameters, stdio_client
 from mcp import Tool as McpTool
 from void_agent.core.tool import Approval, Tool
+from void_agent.mcp.fingerprint import text_fingerprint, tool_fingerprint
 from void_agent.mcp.result import McpUnknownTool, value_of
 
 NOT_MOUNTED = "the MCP server is not mounted: use `async with McpServer...`"
@@ -32,6 +33,7 @@ class McpServer:
         self._session: Any | None = None
         self._stack: AsyncExitStack | None = None
         self._descriptors: dict[str, McpTool] = {}
+        self._fingerprints: dict[str, str] = {}
         self._instructions: str | None = None
         # Set only by `stdio(..., errlog=…)`: the transport is built inside
         # `__aenter__`, where the log file's lifetime can be the server's.
@@ -95,6 +97,9 @@ class McpServer:
             self._session = await stack.enter_async_context(client)
             self._instructions = self._session.instructions
             self._descriptors = {tool.name: tool for tool in await self._discover()}
+            self._fingerprints = {
+                name: _fingerprint_of(tool) for name, tool in self._descriptors.items()
+            }
         except BaseException:
             await stack.aclose()
             raise
@@ -105,7 +110,7 @@ class McpServer:
         """Closing never suppresses: a failure inside the block is the
         caller's, and the connection goes down either way."""
         stack, self._stack, self._session = self._stack, None, None
-        self._descriptors, self._instructions = {}, None
+        self._descriptors, self._fingerprints, self._instructions = {}, {}, None
         if stack is not None:
             await stack.aclose()
 
@@ -121,6 +126,32 @@ class McpServer:
         its hints: read it, then decide what your agent is told. Nothing
         here puts it in a prompt."""
         return self._instructions
+
+    @property
+    def instructions_fingerprint(self) -> str | None:
+        """The SHA-256 of those instructions, or None when the server gave
+        none. Pin it and the next mount shows that the server now says
+        something else about itself."""
+        return None if self._instructions is None else text_fingerprint(self._instructions)
+
+    def fingerprint(self, name: str) -> str:
+        """The SHA-256 of what the server published for this tool — its
+        name, description, input schema and its read-only and destructive
+        hints — computed when it was mounted, from the list it sent. Pin it
+        beside the tool's name and a changed tool is a mismatch at the next
+        mount. `fingerprint.py` has the rule a publisher follows to write
+        the same value."""
+        fingerprint = self._fingerprints.get(name)
+        if fingerprint is None:
+            self._refuse(name)
+        return fingerprint
+
+    def read_only_hint(self, name: str) -> bool | None:
+        """Whether the server says this tool only reads: True, False, or
+        None when it said nothing. Its word, never a decision: whether a
+        call must be signed is still the approval you declare."""
+        hints = self.describe(name).annotations
+        return None if hints is None else hints.read_only_hint
 
     def describe(self, name: str) -> McpTool:
         """The server's own descriptor — its title, schema and hints. The
@@ -192,3 +223,14 @@ class McpServer:
         raise McpUnknownTool(
             f"the server has no tool `{name}`; it offers: {', '.join(self.names)}"
         )
+
+
+def _fingerprint_of(tool: McpTool) -> str:
+    hints = tool.annotations
+    return tool_fingerprint(
+        name=tool.name,
+        description=tool.description,
+        input_schema=tool.input_schema,
+        read_only=None if hints is None else hints.read_only_hint,
+        destructive=None if hints is None else hints.destructive_hint,
+    )

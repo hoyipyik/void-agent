@@ -3,14 +3,16 @@ guards them is declared here, in our code — never by the server."""
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
-from mcp.types import CallToolResult, ImageContent, TextContent
+from mcp.types import CallToolResult, ImageContent, TextContent, ToolAnnotations
 from tests.mcp_fakes import WRITE_SCHEMA, FakeMcp, descriptor, text_result
 
+from mcp import Tool as McpTool
 from void_agent import (
     Call,
     EventSender,
@@ -21,6 +23,11 @@ from void_agent import (
     public_text,
 )
 from void_agent.mcp import McpServer, McpUnknownTool
+
+# The examples a publisher's own script is tested on, byte for byte.
+VECTORS: dict[str, Any] = json.loads(
+    (Path(__file__).parent / "mcp_fingerprint_vectors.json").read_text(encoding="utf-8")
+)
 
 
 def must_sign(input: Any) -> str | None:
@@ -63,6 +70,69 @@ async def test_the_instructions_go_with_the_server_when_it_is_unmounted() -> Non
     async with server:
         pass
     assert server.instructions is None
+
+
+@pytest.mark.parametrize("example", VECTORS["tools"], ids=lambda example: example["tool"]["name"])
+async def test_a_mounted_tool_has_the_fingerprint_its_publisher_wrote_for_it(
+    example: dict[str, Any],
+) -> None:
+    sent = McpTool.model_validate(example["tool"])
+    async with McpServer(client=FakeMcp([sent])) as server:
+        assert server.fingerprint(sent.name) == example["fingerprint"]
+
+
+async def test_a_tool_the_server_changed_no_longer_has_the_fingerprint_it_had() -> None:
+    async with McpServer(client=FakeMcp([descriptor("write_file")])) as server:
+        before = server.fingerprint("write_file")
+    async with McpServer(client=FakeMcp([descriptor("write_file", "overwrites it")])) as server:
+        assert server.fingerprint("write_file") != before
+
+
+async def test_a_fingerprint_for_a_tool_the_server_lacks_is_an_error() -> None:
+    async with McpServer(client=FakeMcp([descriptor("write_file")])) as server:
+        with pytest.raises(McpUnknownTool, match="delete_file"):
+            server.fingerprint("delete_file")
+
+
+async def test_the_instructions_have_a_fingerprint_of_their_own() -> None:
+    said = VECTORS["instructions"]
+    fake = FakeMcp([descriptor("write_file")], instructions=said["text"])
+    async with McpServer(client=fake) as server:
+        assert server.instructions_fingerprint == said["fingerprint"]
+
+
+async def test_a_server_that_gave_no_instructions_has_no_fingerprint_for_them() -> None:
+    async with McpServer(client=FakeMcp([descriptor("write_file")])) as server:
+        assert server.instructions_fingerprint is None
+
+
+async def test_a_tool_hands_over_what_its_server_said_about_only_reading() -> None:
+    """True, False, or None when the server said nothing: its word, and
+    never a decision here."""
+    schema: dict[str, Any] = {"type": "object", "properties": {}}
+    reads = McpTool(
+        name="read_file", input_schema=schema, annotations=ToolAnnotations(read_only_hint=True)
+    )
+    writes = McpTool(
+        name="write_file", input_schema=schema, annotations=ToolAnnotations(read_only_hint=False)
+    )
+    titled = McpTool(name="list_files", input_schema=schema, annotations=ToolAnnotations())
+    unsaid = McpTool(name="stat_file", input_schema=schema)
+    async with McpServer(client=FakeMcp([reads, writes, titled, unsaid])) as server:
+        assert server.read_only_hint("read_file") is True
+        assert server.read_only_hint("write_file") is False
+        assert server.read_only_hint("list_files") is None
+        assert server.read_only_hint("stat_file") is None
+
+
+async def test_the_fingerprints_go_with_the_server_when_it_is_unmounted() -> None:
+    said = VECTORS["instructions"]
+    server = McpServer(client=FakeMcp([descriptor("write_file")], instructions=said["text"]))
+    async with server:
+        pass
+    assert server.instructions_fingerprint is None
+    with pytest.raises(RuntimeError, match="not mounted"):
+        server.fingerprint("write_file")
 
 
 async def test_the_session_is_opened_and_closed_around_the_block() -> None:

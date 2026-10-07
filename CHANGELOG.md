@@ -39,7 +39,13 @@ Everything — the framework has not been released yet.
   the second for Ollama.
 - `void_agent.mcp`: an MCP server's tools as `Tool`s, the approval declared
   by whoever mounts it. A server's own instructions are handed over
-  (`McpServer.instructions`) and put in no prompt by the bridge.
+  (`McpServer.instructions`) and put in no prompt by the bridge. A mounted
+  tool has a fingerprint (`McpServer.fingerprint(name)`): the SHA-256 of
+  what the server published for it, as canonical JSON (RFC 8785), so a
+  catalog can pin a tool and see that its server changed it; the
+  instructions have one too (`instructions_fingerprint`), and
+  `read_only_hint(name)` is the server's own word on whether a tool only
+  reads.
   `void_agent.skills`: a folder of Markdown as tools
   whose whole effect is text in the transcript.
 - The terminal UI (`cli/`, repo-only): the runtime in-process, the

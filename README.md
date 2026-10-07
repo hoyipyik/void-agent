@@ -208,6 +208,17 @@ async def with_files() -> None:
 - `files.instructions` is what the server said of itself when it was
   mounted — how its tools go together — or `None`. The bridge puts it in
   no prompt: it is yours to pass to `with_system`, or to leave out.
+- `files.fingerprint(name)` is the SHA-256 of what the server published for
+  a tool — its name, description, input schema and its read-only and
+  destructive hints — computed at mount from the list it sent. Pin it
+  beside the tool's name and a tool the server changed is a mismatch at the
+  next mount, not a new description nobody read.
+  `files.instructions_fingerprint` is the same for its instructions.
+  `void_agent/mcp/fingerprint.py` has the rule, for a server that wants to
+  publish the same values from its side.
+- `files.read_only_hint(name)` is the server's word on whether a tool only
+  reads: `True`, `False`, or `None` when it said nothing. A hint, never a
+  decision: whether a call is signed is still the approval you declare.
 - A gated call is put to whoever attends the run (`agent.run(…, human=…)`).
   With nobody attending, the turn ends with the card open instead of running
   it — the model never decides whether a side effect runs.

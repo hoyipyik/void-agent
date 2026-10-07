@@ -13,8 +13,9 @@ open above it.
 Mounting is the process's act, choosing the session's: the servers
 `mcp.json` names start here, once — and again when `/mcp` opens on a
 file that changed since — and a server switched in `/mcp` starts or
-stops at once; a tool's or a skill's mark lands on the next turn, when
-the registry builds the agent again from the config.
+stops at once, that one alone and on a task of its own, so the keys are
+never held while it comes up; a tool's or a skill's mark lands on the
+next turn, when the registry builds the agent again from the config.
 """
 
 from __future__ import annotations
@@ -106,7 +107,11 @@ class VoidApp(App[None]):
         # What `mcp.json` names, whether it is running or not: `/mcp` lists
         # every server, so a disabled one is still visible.
         self.servers: tuple[ServerSpec, ...] = ()
+        # The mount or the switch thrown last: each waits for the one
+        # before it, so the bench is only ever asked one thing at a time.
         self._mounting: asyncio.Task[None] | None = None
+        # The servers switched on in `/mcp`, each with the task starting it.
+        self._starting: dict[str, asyncio.Task[None]] = {}
         self.store = store
         self.config = config
         self._config_file = config_file
@@ -184,10 +189,15 @@ class VoidApp(App[None]):
                 f" {len(wanted)} server{'' if len(wanted) == 1 else 's'} — /mcp"
             )
         for name, reason in self.bench.failures:
-            log = self.bench.log_for(name)
-            where = f" · what it said: {tilde(log)}" if log is not None and log.exists() else ""
-            await self.shell.complain(f"mcp: {name} {reason}{where}")
+            await self._complain_of(name, reason)
         self._refresh_mcp_board()
+
+    async def _complain_of(self, name: str, reason: str) -> None:
+        """A server that is not up, said in the log with where its own
+        words went."""
+        log = self.bench.log_for(name)
+        where = f" · what it said: {tilde(log)}" if log is not None and log.exists() else ""
+        await self.shell.complain(f"mcp: {name} {reason}{where}")
 
     def _mcp_dropped(self, name: str, reason: str) -> None:
         """A server that was up went down under the shell — its connection
@@ -203,17 +213,30 @@ class VoidApp(App[None]):
         )
         self._refresh_mcp_board()
 
+    def _mcp_board(self) -> McpPicker | None:
+        """The board, while it is what the person is looking at."""
+        screen = self.screen if self.is_running else None
+        return screen if isinstance(screen, McpPicker) else None
+
+    def _coming_up(self) -> bool:
+        """Whether a mount or a switch has yet to land — the one asking
+        aside: it is the task that just did."""
+        last = self._mounting
+        return self.bench.mounting or (
+            last is not None and not last.done() and last is not asyncio.current_task()
+        )
+
     def _refresh_mcp_board(self) -> None:
         """A board open while the servers were still coming up gets what
         the bench holds now, rather than the empty list it opened on."""
-        screen = self.screen if self.is_running else None
-        if isinstance(screen, McpPicker):
-            screen.reload(
+        board = self._mcp_board()
+        if board is not None:
+            board.reload(
                 self.servers,
                 self.config,
                 self.bench.catalog,
                 self.bench.failures,
-                mounting=self.bench.mounting,
+                mounting=self._coming_up(),
             )
 
     def _specs(self) -> tuple[ServerSpec, ...]:
@@ -253,6 +276,44 @@ class VoidApp(App[None]):
         self._mounting = asyncio.create_task(restart(), name="mcp-restart")
         return self._mounting
 
+    def _switch_server(self, name: str, state: Switch) -> asyncio.Task[None]:
+        """One server started or stopped as its switch was thrown, the
+        others left running — their tools never leave the bench for it —
+        on a task of its own behind whatever is still in flight. The board
+        stays open over it and is handed what the bench holds when it
+        lands; closed by then, the log says the server is up."""
+        previous = self._mounting
+
+        async def switch() -> None:
+            if previous is not None and not previous.done():
+                await previous
+            spec = next((spec for spec in self.servers if spec.name == name), None)
+            if spec is None or state == "off":
+                await self.bench.stop(name)
+            else:
+                await self.bench.start(spec)
+                await self._say_started(name)
+            self._refresh_mcp_board()
+
+        self._mounting = asyncio.create_task(switch(), name=f"mcp-switch-{name}")
+        if state == "on":
+            self._starting[name] = self._mounting
+        else:
+            self._starting.pop(name, None)
+        return self._mounting
+
+    async def _say_started(self, name: str) -> None:
+        """What became of a server switched on: a complaint if it did not
+        start; a note that it is up if the board, whose row would have
+        said so, is closed — and nothing if it was switched off again
+        meanwhile."""
+        reason = dict(self.bench.failures).get(name)
+        if reason is not None:
+            await self._complain_of(name, reason)
+        elif self._mcp_board() is None and self.config.server_state(name) == "on":
+            count = sum(1 for info in self.bench.catalog if info.server == name)
+            await self.shell.note(f"mcp: {name} up — {count} tool{'' if count == 1 else 's'}")
+
     async def _open_mcp_board(self) -> None:
         """`/mcp`, over the file re-read as the board opens: an entry added
         or changed since the servers were mounted restarts them, and the
@@ -270,7 +331,7 @@ class VoidApp(App[None]):
                 self.config,
                 failures=self.bench.failures,
                 path=tilde(self._mcp_file),
-                mounting=changed or self.bench.mounting,
+                mounting=changed or self._coming_up(),
             ),
             self._mcp_marked,
         )
@@ -485,20 +546,27 @@ class VoidApp(App[None]):
 
     # ── the marks: /mcp and /skill ─────────────────────────────────────
 
-    async def on_mcp_picker_server_toggled(self, message: McpPicker.ServerToggled) -> None:
+    def on_mcp_picker_server_toggled(self, message: McpPicker.ServerToggled) -> None:
         """A server switched on or off in `/mcp`, applied now: it is a
         process, so it starts or stops here, and the board is handed what
-        the bench holds afterwards."""
+        the bench holds once it has. Never awaited: this handler runs on
+        the app's pump, where every key comes in, and a server takes
+        seconds to come up — the board would sit dead until it had."""
         message.stop()
-        self._set_config(self.config.with_server_state(message.name, _switch(message.state)))
-        # Awaiting here holds this handler, not the loop.
-        await self._restart()
+        state = _switch(message.state)
+        self._set_config(self.config.with_server_state(message.name, state))
+        self._switch_server(message.name, state)
 
     async def _mcp_marked(self, states: dict[str, str] | None) -> None:
         """What `/mcp` marked, kept. A tool's mark lands on the next turn —
         the agent is rebuilt every one. A server's does not: turning one on
-        or off starts or stops a process, so the bench is remounted here and
-        the person is told what happened."""
+        or off starts or stops a process, which was asked for when the
+        switch was thrown; here the person is told what happened."""
+        # The board said `starting…` on the row. Closed before the server
+        # is up, the log says it, and again when it is.
+        starting = [name for name, task in self._starting.items() if not task.done()]
+        if starting:
+            await self.shell.note(f"mcp: starting {', '.join(starting)}…")
         if not states:
             return
         config = self.config

@@ -817,10 +817,9 @@ async def test_turning_a_server_off_stops_it_and_takes_its_tools_away(tmp_path: 
         await pilot.press("enter")  # the first row is the files server: on → off
         await pilot.press("escape")
         await pilot.pause()
-        await finished(app)
         assert app.config.server_state("toolbox") == "off"
-        # the bench was remounted: only the server left on is running
-        assert [info.server for info in app.bench.catalog] == ["docs"]
+        # it stops on a task of its own: only the server left on is running
+        await eventually(pilot, lambda: [i.server for i in app.bench.catalog] == ["docs"])
         agent = app.agents.build_agent(app.config)
         assert "toolbox__write_file" not in agent.tool_names
         assert "docs__search" in agent.tool_names
@@ -899,7 +898,7 @@ async def test_a_server_switched_off_takes_its_tools_off_the_board(tmp_path: Pat
         assert picker.choices.highlighted == 0  # still on the row just switched
 
         await pilot.press("enter")  # back on
-        await pilot.pause()
+        await eventually(pilot, lambda: "tool:toolbox__read_file" in ids(picker))
         assert [option.id for option in picker.choices.options] == [
             "server:toolbox",
             "tool:toolbox__write_file",
@@ -907,6 +906,8 @@ async def test_a_server_switched_off_takes_its_tools_off_the_board(tmp_path: Pat
             "server:docs",
             "tool:docs__search",
         ]
+        assert "sign" in str(picker.choices.get_option("tool:toolbox__write_file").prompt)
+        assert picker.choices.highlighted == 0  # and the highlight never left the switch
         await pilot.press("escape")
         await pilot.pause()
     assert app.config.tool_state("toolbox__write_file") == "signed"  # the mark survived
@@ -1016,8 +1017,7 @@ async def test_switching_a_server_on_brings_its_tools_in_without_closing_the_boa
         ]
 
         await pilot.press("down", "down", "down", "enter")  # docs: off → on
-        await finished(app)
-        await pilot.pause()
+        await eventually(pilot, lambda: "tool:docs__search" in ids(picker))
         assert app.config.server_state("docs") == "on"
         assert [option.id for option in picker.choices.options] == [
             "server:toolbox",
@@ -1029,8 +1029,7 @@ async def test_switching_a_server_on_brings_its_tools_in_without_closing_the_boa
         assert picker.choices.highlighted == 3  # still on the switch just thrown
 
         await pilot.press("enter")  # and back off, in place
-        await finished(app)
-        await pilot.pause()
+        await eventually(pilot, lambda: len(app.bench.catalog) == 2)
         assert app.config.server_state("docs") == "off"
         assert [option.id for option in picker.choices.options] == [
             "server:toolbox",
@@ -1091,6 +1090,209 @@ async def test_a_board_open_while_the_servers_start_fills_in_by_itself(
             "tool:toolbox__write_file",
         ]
         assert "1 tool" in str(picker.choices.get_option("server:toolbox").prompt)
+        await pilot.press("escape")
+        await pilot.pause()
+
+
+def switching_app(tmp_path: Path, gate: Any) -> tuple[VoidApp, list[str], dict[str, Any]]:
+    """A shell with a server that is up and one left off whose start waits
+    on `gate` — a subprocess, a download — and the names of every server
+    the bench opened, in order."""
+    from cli.mcp import Bench
+    from cli.mcp.spec import ServerSpec
+    from tests.mcp_fakes import FakeMcp, descriptor
+
+    from void_agent.mcp import McpServer
+
+    (tmp_path / "mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "toolbox": {"command": "npx", "args": ["-y", "fs"], "default": "on"},
+                    "docs": {"url": "https://example.test/mcp", "default": "on"},
+                }
+            }
+        )
+    )
+    fakes = {
+        "toolbox": FakeMcp([descriptor("write_file")]),
+        "docs": FakeMcp([descriptor("search", "searches the docs")]),
+    }
+    opened: list[str] = []
+
+    class Slow(McpServer):
+        async def __aenter__(self) -> McpServer:
+            await gate.wait()
+            return await super().__aenter__()
+
+    def opener(spec: ServerSpec) -> McpServer:
+        opened.append(spec.name)
+        kind = Slow if spec.name == "docs" else McpServer
+        return kind(client=fakes[spec.name])
+
+    app = VoidApp(
+        lambda _config: scripted("ok"),
+        store=SessionStore(tmp_path / "sessions"),
+        config=CONFIGURED.with_server_state("docs", "off"),
+        config_file=tmp_path / "config.json",
+        ollama=ollama_down(),
+        bench=Bench(opener=opener),
+        mcp_file=tmp_path / "mcp.json",
+        skills_dir=tmp_path / "skills",
+    )
+    return app, opened, fakes
+
+
+async def test_a_server_switched_on_never_holds_the_keys_while_it_starts(
+    tmp_path: Path,
+) -> None:
+    """Starting a server is a subprocess and, the first time, a download.
+    The switch is thrown on the app's pump, where every key comes in:
+    awaited there, the board and the shell under it sat dead until the
+    server was up. The row says it is starting, and the keys go on."""
+    import asyncio
+
+    gate = asyncio.Event()
+    app, _, _ = switching_app(tmp_path, gate)
+    async with app.run_test() as pilot:
+        await eventually(pilot, lambda: bool(app.bench.catalog))
+        await pilot.press(*"/mcp", "enter")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, McpPicker)
+        try:
+            async with asyncio.timeout(5):
+                await pilot.press("down", "down", "enter")  # docs: off → on, and slow
+                await pilot.pause()
+                assert "starting…" in str(picker.choices.get_option("server:docs").prompt)
+                assert heading(picker) == "1/2 servers running · 1/1 tools on"
+                await pilot.press("up")  # the board still reads the keys
+                await pilot.pause()
+                assert picker.choices.highlighted == 1
+                await pilot.press("escape")
+                await pilot.pause()
+                assert app.screen is app.shell
+                await pilot.press(*"hi")  # and so does the composer
+                await pilot.pause()
+                assert app.shell.composer.text == "hi"
+                # the server that was up never left: a turn sent now has it
+                assert "toolbox__write_file" in app.agents.build_agent(app.config).tool_names
+        finally:
+            gate.set()
+        await eventually(pilot, lambda: len(app.bench.catalog) == 2)
+        assert "docs__search" in app.agents.build_agent(app.config).tool_names
+
+
+async def test_a_switch_starts_or_stops_that_server_and_no_other(tmp_path: Path) -> None:
+    """Turning one server on or off used to restart every one of them —
+    seconds of subprocesses for a switch that concerned one, with no MCP
+    tool at all on a turn sent meanwhile."""
+    import asyncio
+
+    gate = asyncio.Event()
+    gate.set()
+    app, opened, fakes = switching_app(tmp_path, gate)
+    async with app.run_test() as pilot:
+        await eventually(pilot, lambda: bool(app.bench.catalog))
+        assert opened == ["toolbox"]
+        await pilot.press(*"/mcp", "enter")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, McpPicker)
+
+        await pilot.press("down", "down", "enter")  # docs: off → on
+        await eventually(pilot, lambda: "tool:docs__search" in ids(picker))
+        assert opened == ["toolbox", "docs"]  # the toolbox was not opened again
+        assert not fakes["toolbox"].closed
+        assert heading(picker) == "2/2 servers running · 2/2 tools on"
+
+        await pilot.press("up", "up", "enter")  # the toolbox: on → off
+        await eventually(pilot, lambda: fakes["toolbox"].closed)
+        assert opened == ["toolbox", "docs"]  # and docs was not, for that
+        assert not fakes["docs"].closed
+        assert [info.id for info in app.bench.catalog] == ["docs__search"]
+        await pilot.press("escape")
+        await pilot.pause()
+
+
+async def test_a_server_that_comes_up_after_the_board_closed_is_said_in_the_log(
+    tmp_path: Path,
+) -> None:
+    """The board says `starting…` on the row. Closed before the server is
+    up, the log says it instead: that it is starting, then that it is up."""
+    import asyncio
+
+    gate = asyncio.Event()
+    app, _, _ = switching_app(tmp_path, gate)
+    async with app.run_test() as pilot:
+        await eventually(pilot, lambda: bool(app.bench.catalog))
+        await pilot.press(*"/mcp", "enter")
+        await pilot.pause()
+        try:
+            async with asyncio.timeout(5):
+                await pilot.press("down", "down", "enter")  # docs: off → on, and slow
+                await pilot.press("escape")
+                await pilot.pause()
+                assert str(app.shell.query(".note").last().render()) == "⏺ mcp: starting docs…"
+        finally:
+            gate.set()
+        await eventually(pilot, lambda: len(app.bench.catalog) == 2)
+        await pilot.pause()
+        assert str(app.shell.query(".note").last().render()) == "⏺ mcp: docs up — 1 tool"
+
+
+async def test_a_server_that_comes_up_under_the_open_board_adds_nothing_to_the_log(
+    tmp_path: Path,
+) -> None:
+    import asyncio
+
+    gate = asyncio.Event()
+    gate.set()
+    app, _, _ = switching_app(tmp_path, gate)
+    async with app.run_test() as pilot:
+        await eventually(pilot, lambda: bool(app.bench.catalog))
+        await pilot.pause()
+        notes = len(app.shell.query(".note"))
+        await pilot.press(*"/mcp", "enter")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, McpPicker)
+        await pilot.press("down", "down", "enter")  # docs: off → on
+        await eventually(pilot, lambda: "tool:docs__search" in ids(picker))
+        await pilot.press("escape")
+        await pilot.pause()
+        assert len(app.shell.query(".note")) == notes  # the row said it all
+
+
+async def test_a_server_that_will_not_start_when_switched_on_is_a_complaint(
+    tmp_path: Path,
+) -> None:
+    from cli.mcp import Bench
+    from cli.mcp.spec import ServerSpec
+    from tests.mcp_fakes import FakeMcp, descriptor
+
+    from void_agent.mcp import McpServer
+
+    def opener(spec: ServerSpec) -> McpServer:
+        if spec.name == "docs":
+            raise OSError("connection refused")
+        return McpServer(client=FakeMcp([descriptor("write_file")]))
+
+    app = mcp_app(tmp_path, config=CONFIGURED.with_server_state("docs", "off"))
+    app.bench = app.agents.bench = Bench(opener=opener)
+    async with app.run_test() as pilot:
+        await eventually(pilot, lambda: bool(app.bench.catalog))
+        await pilot.press(*"/mcp", "enter")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, McpPicker)
+        await pilot.press("down", "down", "enter")  # docs: off → on
+        await eventually(pilot, lambda: bool(app.bench.failures))
+        await pilot.pause()
+        said = str(app.query(".error").last().render())
+        assert "mcp: docs did not start — connection refused" in said
+        assert "did not start" in str(picker.choices.get_option("server:docs").prompt)
+        assert len(app.bench.catalog) == 1  # the other one is still up
         await pilot.press("escape")
         await pilot.pause()
 

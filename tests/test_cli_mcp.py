@@ -169,8 +169,8 @@ async def test_a_bench_with_no_servers_mounts_and_closes_quietly() -> None:
 
 
 async def test_a_bench_can_be_closed_and_opened_again_with_a_different_set() -> None:
-    """`/mcp` turning a server on or off remounts the bench; the second
-    mount must not walk into the first one's closing."""
+    """`/mcp` opening on an `mcp.json` that changed remounts the bench; the
+    second mount must not walk into the first one's closing."""
     files, docs = FakeMcp([READS]), FakeMcp([READS])
     bench = bench_of(files=files, docs=docs)
     await bench.open(specs("files", "docs"))
@@ -353,3 +353,137 @@ async def test_a_server_that_will_not_close_cleanly_never_fails_the_close() -> N
     await bench.open(specs("files"))
     await bench.close()
     assert bench.catalog == () and bench.failures == ()
+
+
+# ── one server at a time: what a switch thrown in `/mcp` asks for ────────
+
+
+def counting(clients: dict[str, FakeMcp]) -> tuple[Bench, list[str]]:
+    """A bench that writes down every server it opens."""
+    opened: list[str] = []
+
+    def opener(spec: ServerSpec) -> McpServer:
+        opened.append(spec.name)
+        return McpServer(client=clients[spec.name])
+
+    return Bench(opener=opener), opened
+
+
+async def test_one_server_is_started_with_the_others_left_up() -> None:
+    """Turning a server on is that server's start: the ones already up are
+    neither closed nor opened again for it, and their tools never leave
+    the bench."""
+    files, docs = FakeMcp([READS]), FakeMcp([FILES])
+    bench, opened = counting({"files": files, "docs": docs})
+    files_spec, docs_spec = specs("files", "docs")
+    await bench.open((files_spec,))
+    try:
+        await bench.start(docs_spec)
+        assert [info.id for info in bench.catalog] == ["files__read_file", "docs__write_file"]
+        assert opened == ["files", "docs"]
+        assert not files.closed
+    finally:
+        await bench.close()
+
+
+async def test_one_server_is_stopped_with_the_others_left_up() -> None:
+    files, docs = FakeMcp([READS]), FakeMcp([FILES])
+    bench, opened = counting({"files": files, "docs": docs})
+    await bench.open(specs("files", "docs"))
+    try:
+        await bench.stop("files")
+        assert [info.id for info in bench.catalog] == ["docs__write_file"]
+        assert files.closed and not docs.closed
+        assert opened == ["files", "docs"]
+        (capability,) = bench.tools()
+        await capability.invoke({"path": "/a"}, EventSender())
+    finally:
+        await bench.close()
+    assert docs.calls == [("write_file", {"path": "/a"})]
+
+
+async def test_a_server_stopped_and_started_again_keeps_its_place() -> None:
+    """Off and on is not a reason for the model's tools to change order."""
+    bench, _ = counting({"files": FakeMcp([READS]), "docs": FakeMcp([FILES])})
+    files_spec, docs_spec = specs("files", "docs")
+    await bench.open((files_spec, docs_spec))
+    try:
+        await bench.stop("files")
+        await bench.start(files_spec)
+        assert [info.id for info in bench.catalog] == ["files__read_file", "docs__write_file"]
+    finally:
+        await bench.close()
+
+
+async def test_starting_a_server_that_is_up_leaves_it_alone() -> None:
+    files = FakeMcp([READS])
+    bench, opened = counting({"files": files})
+    (spec,) = specs("files")
+    await bench.open((spec,))
+    try:
+        await bench.start(spec)
+        assert opened == ["files"] and not files.closed
+        assert len(bench.catalog) == 1
+    finally:
+        await bench.close()
+
+
+async def test_a_server_that_dropped_is_started_again_off_and_on() -> None:
+    """What the shell tells the person to do when a server drops: off and
+    on. The second start is a fresh one, and the failure goes with it."""
+    dropping = DroppingMcp([FILES])
+    clients: list[FakeMcp] = [dropping, FakeMcp([FILES])]
+    bench = Bench(opener=lambda spec: McpServer(client=clients.pop(0)))
+    (spec,) = specs("docs")
+    await bench.open((spec,))
+    dropping.cut.set()
+    await until(lambda: bool(bench.failures))
+    try:
+        await bench.stop("docs")
+        assert bench.failures == ()  # a server that is off is not a failure
+        await bench.start(spec)
+        assert [info.id for info in bench.catalog] == ["docs__write_file"]
+        assert bench.failures == ()
+    finally:
+        await bench.close()
+
+
+async def test_a_server_that_will_not_start_alone_is_reported_like_any_other() -> None:
+    def opener(spec: ServerSpec) -> McpServer:
+        if spec.name == "broken":
+            raise OSError("npx: not found")
+        return McpServer(client=FakeMcp([READS]))
+
+    bench = Bench(opener=opener)
+    files_spec, broken_spec = specs("files", "broken")
+    await bench.open((files_spec,))
+    try:
+        await bench.start(broken_spec)
+        assert bench.failures == (("broken", "did not start — npx: not found"),)
+        assert [info.id for info in bench.catalog] == ["files__read_file"]
+    finally:
+        await bench.close()
+
+
+async def test_the_bench_names_the_servers_still_starting() -> None:
+    gate = asyncio.Event()
+    fast = FakeMcp([READS])
+    bench = Bench(
+        opener=lambda spec: (
+            _slow(gate, FakeMcp([FILES])) if spec.name == "docs" else McpServer(client=fast)
+        )
+    )
+    files_spec, docs_spec = specs("files", "docs")
+    await bench.open((files_spec,))
+    starting = asyncio.create_task(bench.start(docs_spec))
+    await asyncio.sleep(0)
+    try:
+        assert bench.starting == ("docs",) and bench.mounting
+        assert [info.id for info in bench.catalog] == ["files__read_file"]  # up all along
+        gate.set()
+        await starting
+        assert bench.starting == () and not bench.mounting
+        assert len(bench.catalog) == 2
+    finally:
+        gate.set()
+        await bench.close()

@@ -32,6 +32,7 @@ class McpServer:
         self._session: Any | None = None
         self._stack: AsyncExitStack | None = None
         self._descriptors: dict[str, McpTool] = {}
+        self._instructions: str | None = None
         # Set only by `stdio(..., errlog=…)`: the transport is built inside
         # `__aenter__`, where the log file's lifetime can be the server's.
         self._parameters: StdioServerParameters | None = None
@@ -92,6 +93,7 @@ class McpServer:
             if client is None:
                 raise RuntimeError("an McpServer needs a client or stdio parameters")
             self._session = await stack.enter_async_context(client)
+            self._instructions = self._session.instructions
             self._descriptors = {tool.name: tool for tool in await self._discover()}
         except BaseException:
             await stack.aclose()
@@ -103,7 +105,7 @@ class McpServer:
         """Closing never suppresses: a failure inside the block is the
         caller's, and the connection goes down either way."""
         stack, self._stack, self._session = self._stack, None, None
-        self._descriptors = {}
+        self._descriptors, self._instructions = {}, None
         if stack is not None:
             await stack.aclose()
 
@@ -111,6 +113,14 @@ class McpServer:
     def names(self) -> tuple[str, ...]:
         """What the server offers, in the order it listed them."""
         return tuple(self._descriptors)
+
+    @property
+    def instructions(self) -> str | None:
+        """What the server said of itself when it was mounted — how its
+        tools go together — or None when it said nothing. Its word, like
+        its hints: read it, then decide what your agent is told. Nothing
+        here puts it in a prompt."""
+        return self._instructions
 
     def describe(self, name: str) -> McpTool:
         """The server's own descriptor — its title, schema and hints. The

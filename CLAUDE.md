@@ -28,8 +28,9 @@ src/void_agent/providers anthropic.py / openai_responses.py (OpenAI, stateless)
 src/void_agent/mcp       the bridge: an MCP server's tools as `Tool`s
                          (server.py mounts and discovers, result.py maps a
                          CallToolResult, fingerprint.py hashes what a
-                         server published); the approval is declared by the
-                         caller, never by the server; SDK types stay inside
+                         server published, failure.py files a mount that
+                         failed); the approval is declared by the caller,
+                         never by the server; SDK types stay inside
 src/void_agent/skills    a folder of instructions as tools: only the
                          description stays in context, the body arrives on
                          the call; knowledge, never capability
@@ -118,7 +119,13 @@ that mounts an agent is an application above it.
   on both sides together, or not at all. Mounting is a lifecycle, not a
   call: the connection opens once and outlives the per-turn agent, so
   `McpServer` is an async context manager. An HTTP server's
-  authentication is a `headers` mapping on the spec, nothing more.
+  authentication is a `headers` mapping on the spec, nothing more. A mount
+  that fails is `McpMountFailed` or one of its three kinds
+  (`McpUnauthorized`, `McpNotFound`, `McpUnreachable`), never the SDK's
+  exception group: a caller takes a different road for each, and must not
+  have to read the SDK's types to choose it. Cancellation is never filed
+  as one. A transport that breaks after the mount is still not the
+  model's business: it raises, and `Tool.invoke` files it as `Internal`.
 - A skill brings knowledge, a tool brings capability, and the line does
   not move. `void_agent/skills` turns a folder of Markdown into tools
   whose whole effect is text in the transcript: no side effect, nothing

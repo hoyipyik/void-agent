@@ -219,6 +219,13 @@ async def with_files() -> None:
 - `files.read_only_hint(name)` is the server's word on whether a tool only
   reads: `True`, `False`, or `None` when it said nothing. A hint, never a
   decision: whether a call is signed is still the approval you declare.
+- A mount that fails raises `McpMountFailed`, never the SDK's exception
+  group. Three kinds have a road of their own: `McpUnauthorized` (HTTP 401:
+  the token was refused — get another and mount again), `McpNotFound`
+  (HTTP 404: nothing serves MCP at that address) and `McpUnreachable`
+  (nothing answered, or the command is not there). Anything else is the
+  plain `McpMountFailed`, and `.status` is the HTTP status when the server
+  gave one. What the SDK raised is the `__cause__`, for your log.
 - A gated call is put to whoever attends the run (`agent.run(…, human=…)`).
   With nobody attending, the turn ends with the card open instead of running
   it — the model never decides whether a side effect runs.

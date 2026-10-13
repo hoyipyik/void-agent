@@ -19,8 +19,9 @@ src/void_agent/core/     the concepts, finely split (one concern per file):
                          tool/ (tool: the mechanism; gate: decides in code,
                          asks the person itself), agent/ (agent, loop,
                          dispatch, outcome, rules), builtins/
-                         (plan, reflection — shipped tools, chain-enabled
-                         via `with_plan`/`with_reflection`, never injected),
+                         (plan, reflection, diagram — shipped tools,
+                         chain-enabled via `with_plan`/`with_reflection`/
+                         `with_diagram`, never injected),
                          events/ parts/ llm/ — pydantic only
 src/void_agent/providers anthropic.py / openai_responses.py (OpenAI, stateless)
                          / openai.py (Chat Completions: Ollama and kin) —

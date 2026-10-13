@@ -36,6 +36,7 @@ from void_agent.core.agent.loop import Loop
 from void_agent.core.agent.outcome import Answer, TurnResult
 from void_agent.core.agent.rules import ASK_USER, FINAL_ANSWER, TOOL_SEQUENCING_RULE
 from void_agent.core.ask import Ask, Human
+from void_agent.core.builtins.diagram import diagram_tool
 from void_agent.core.builtins.plan import plan_tool
 from void_agent.core.builtins.reflection import reflect_tool
 from void_agent.core.content import TextContent
@@ -109,6 +110,13 @@ class Agent:
         """Enable the built-in `reflect` tool: a durable projection of the
         model's self-assessment (`ReflectionMade` → `data-reflection`)."""
         return self.tool(reflect_tool())
+
+    def with_diagram(self) -> Agent:
+        """Enable the built-in `draw_diagram` tool: the rules for a Mermaid
+        diagram, handed to the model when it is about to draw one. The
+        diagram is its reply's own text (a fenced `mermaid` block) — no
+        event, no part."""
+        return self.tool(diagram_tool())
 
     def prompt(self, render: Callable[[Any], Sequence[Message]]) -> Agent:
         """How this agent's typed input becomes the opening transcript.

@@ -10,6 +10,11 @@ Everything — the framework has not been released yet.
   single mounting verb (functions, workflows, sub-agents, `HUMAN`), plan and
   reflection as built-in tools, the
   Vercel-AI-SDK-compatible event stream, and `context_text` semantic resume.
+- Diagrams as a built-in: `Agent.with_diagram()` enables `draw_diagram`, which
+  draws nothing — its result is the rules for writing Mermaid, and the diagram
+  follows in the reply as a fenced `mermaid` block, an ordinary `text` part for
+  whatever shows the conversation to render. No event, no part, nothing new on
+  the wire.
 - The model-facing projections keep a tool's output whole: `context_text`
   and `context_content` take `tool_output_limit=` for an application that
   wants a cap and cut the line there; core sets none. The CLI sets one:
@@ -29,7 +34,7 @@ Everything — the framework has not been released yet.
 - Core layout, one concern per file: leaves `errors`, `content`, `messages`,
   `ask` (a question as a value); packages `human/` (attendant, channel),
   `tool/` (tool, gate), `agent/` (agent, loop, dispatch, outcome, rules),
-  `events/`, `parts/`, `llm/`, `builtins/` (plan, reflection).
+  `events/`, `parts/`, `llm/`, `builtins/` (plan, reflection, diagram).
 - Providers: `AnthropicLlm`, `OpenAiResponsesLlm`, `OpenAiLlm` (optional
   extras); `ScriptedLlm` for deterministic offline runs (steps may react to
   the transcript). `OpenAiResponsesLlm` is OpenAI on the Responses API,

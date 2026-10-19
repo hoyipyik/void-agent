@@ -34,7 +34,7 @@ from void_agent.core.llm import (
 )
 from void_agent.core.usage import Usage
 
-DEFAULT_MODEL = "claude-opus-5"
+DEFAULT_MODEL = "claude-opus-5-5"
 
 
 def _content(part: ContentPart) -> dict[str, Any]:

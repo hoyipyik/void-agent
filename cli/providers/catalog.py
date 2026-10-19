@@ -7,11 +7,12 @@ has installed, read when the picker opens (`ollama.py`).
 
 A model's efforts are the reasoning levels its own API accepts, read off
 it model by model — OpenAI's by asking each (2026-10-01), Anthropic's from
-its documentation — since a level one model takes, its neighbour may
-refuse with a 400. OpenAI's `none` — no reasoning at all — is the least on
-the scale of a model that takes it: there for the person to choose, never
-a default. What the CLI asks for is always on the scale and never left to
-the API, whose own default for some models is that `none`."""
+its documentation (2026-10-19) — since a level one model takes, its
+neighbour may refuse with a 400. OpenAI's `none` — no reasoning at all —
+is the least on the scale of a model that takes it: there for the person
+to choose, never a default. What the CLI asks for is always on the scale
+and never left to the API, whose own default for some models is that
+`none`."""
 
 from __future__ import annotations
 
@@ -60,7 +61,6 @@ class ModelInfo:
 
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 NO_MAX = EFFORTS[:-1]
-NO_XHIGH = ("low", "medium", "high", "max")
 OR_NONE = ("none", *EFFORTS)
 OR_NONE_NO_MAX = ("none", *NO_MAX)
 
@@ -82,21 +82,20 @@ CATALOG: tuple[ModelInfo, ...] = (
     ),
     ModelInfo(
         "anthropic",
-        "claude-opus-5",
-        "Opus 5",
-        "complex reasoning and coding",
+        "claude-sonnet-5-5",
+        "Sonnet 5.5",
+        "speed and intelligence in balance",
         efforts=EFFORTS,
         default_effort="high",
     ),
     ModelInfo(
         "anthropic",
-        "claude-sonnet-5",
-        "Sonnet 5",
-        "fast and balanced, for everyday work",
+        "claude-opus-5-5",
+        "Opus 5.5",
+        "long-running agentic coding and knowledge work",
         efforts=EFFORTS,
-        default_effort="high",
+        default_effort="medium",  # its API's own, one below Opus 5's
     ),
-    ModelInfo("anthropic", "claude-haiku-4-5", "Haiku 4.5", "the previous Haiku"),
     ModelInfo(
         "anthropic",
         "claude-fable-5-1",
@@ -107,36 +106,21 @@ CATALOG: tuple[ModelInfo, ...] = (
     ),
     ModelInfo(
         "anthropic",
-        "claude-opus-4-8",
-        "Opus 4.8",
+        "claude-opus-5",
+        "Opus 5",
         "the previous Opus",
         efforts=EFFORTS,
         default_effort="high",
     ),
     ModelInfo(
         "anthropic",
-        "claude-opus-4-7",
-        "Opus 4.7",
-        "an earlier Opus",
+        "claude-sonnet-5",
+        "Sonnet 5",
+        "the previous Sonnet",
         efforts=EFFORTS,
         default_effort="high",
     ),
-    ModelInfo(
-        "anthropic",
-        "claude-opus-4-6",
-        "Opus 4.6",
-        "an earlier Opus",
-        efforts=NO_XHIGH,
-        default_effort="high",
-    ),
-    ModelInfo(
-        "anthropic",
-        "claude-sonnet-4-6",
-        "Sonnet 4.6",
-        "the previous Sonnet",
-        efforts=NO_XHIGH,
-        default_effort="high",
-    ),
+    ModelInfo("anthropic", "claude-haiku-4-5", "Haiku 4.5", "the previous Haiku"),
     ModelInfo(
         "openai",
         "gpt-6-luna",

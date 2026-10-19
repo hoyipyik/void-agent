@@ -71,10 +71,15 @@ def test_each_model_takes_the_efforts_its_own_api_accepts() -> None:
     assert efforts("gpt-6-luna") == ("none", "low", "medium", "high", "xhigh", "max")
     assert "none" not in efforts("gpt-6-astra")  # it always reasons
     assert "max" not in efforts("gpt-5.5")
+    for current in (
+        "claude-haiku-5-5",
+        "claude-sonnet-5-5",
+        "claude-opus-5-5",
+        "claude-fable-5-1",
+    ):
+        assert efforts(current) == ("low", "medium", "high", "xhigh", "max")
     assert efforts("claude-opus-5") == ("low", "medium", "high", "xhigh", "max")
-    assert "xhigh" not in efforts("claude-opus-4-6")
     assert efforts("claude-haiku-4-5") == ()
-    assert efforts("claude-haiku-5-5") == ("low", "medium", "high", "xhigh", "max")
 
 
 def test_no_reasoning_is_a_choice_never_a_default() -> None:
@@ -83,6 +88,29 @@ def test_no_reasoning_is_a_choice_never_a_default() -> None:
     for model in CATALOG:
         assert model.default_effort != "none"
         assert "none" not in model.efforts[1:]
+
+
+def test_the_claude_models_are_the_current_four_and_the_previous_of_each_line() -> None:
+    """Read off Anthropic's models page (2026-10-19): Fable 5.1, Opus 5.5,
+    Sonnet 5.5 and Haiku 5.5 are current, the rest legacy. `/model <id>`
+    still reaches one the catalogue no longer lists."""
+    assert [model.id for model in models_for("anthropic")] == [
+        "claude-haiku-5-5",
+        "claude-sonnet-5-5",
+        "claude-opus-5-5",
+        "claude-fable-5-1",
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "claude-haiku-4-5",
+    ]
+
+
+def test_a_current_claude_starts_at_its_apis_own_effort_but_haiku() -> None:
+    """Opus 5.5's own is medium, Sonnet 5.5's and Fable 5.1's high."""
+    defaults = {m.id: m.default_effort for m in models_for("anthropic")}
+    assert defaults["claude-opus-5-5"] == "medium"
+    assert defaults["claude-sonnet-5-5"] == "high"
+    assert defaults["claude-fable-5-1"] == "high"
 
 
 def test_haiku_5_5_starts_at_high_effort() -> None:

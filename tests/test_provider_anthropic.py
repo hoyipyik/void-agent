@@ -62,6 +62,15 @@ async def test_the_transcript_renders_to_system_messages_and_tool_results() -> N
     assert request["tools"][0]["name"] == "f"
 
 
+async def test_with_no_model_named_the_adapter_asks_for_claude_opus_5_5() -> None:
+    """Anthropic's own starting point for most work."""
+    fake = FakeClient([], final_message(text_block("ok")))
+    await AnthropicLlm(client=cast(AsyncAnthropic, fake)).step(
+        [UserText("hello")], [], EventSender()
+    )
+    assert fake.requests[0]["model"] == "claude-opus-5-5"
+
+
 async def test_raw_content_replays_verbatim_on_continuation() -> None:
     fake = FakeClient([], final_message(text_block("ok")))
     llm = AnthropicLlm(client=cast(AsyncAnthropic, fake))

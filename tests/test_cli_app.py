@@ -279,11 +279,11 @@ async def test_slash_model_alone_opens_the_picker_and_a_digit_picks(tmp_path: Pa
         await pilot.press(*"/model", "enter")
         await pilot.pause()
         assert isinstance(app.screen, ModelPicker)
-        # Anthropic heads the catalogue: Haiku 5.5, then Opus 5
+        # Anthropic heads the catalogue: Haiku 5.5, then Sonnet 5.5
         await pilot.press("2")
         await pilot.pause()
         assert not isinstance(app.screen, ModelPicker)
-        assert (app.config.provider, app.config.model) == ("anthropic", "claude-opus-5")
+        assert (app.config.provider, app.config.model) == ("anthropic", "claude-sonnet-5-5")
 
 
 LUNA = Config(provider="openai", openai_api_key="k", openai_model="gpt-6-luna")

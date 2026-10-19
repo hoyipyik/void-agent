@@ -115,7 +115,7 @@ def model() -> Llm:
     if os.environ.get("ANTHROPIC_API_KEY"):
         from void_agent.providers.anthropic import AnthropicLlm
 
-        return AnthropicLlm("claude-sonnet-5")
+        return AnthropicLlm("claude-sonnet-5-5")
     from void_agent.providers.openai_responses import OpenAiResponsesLlm
 
     return OpenAiResponsesLlm("gpt-6-luna")
@@ -146,7 +146,7 @@ endpoint compatible with its API.
 | --- | --- | --- | --- |
 | `OpenAiResponsesLlm` — OpenAI on its Responses API, stateless | `openai` | `OpenAiResponsesLlm("gpt-6-luna", extra={"reasoning": {"effort": "high"}})` | `OPENAI_API_KEY`; `OPENAI_BASE_URL` for another host |
 | `OpenAiLlm` — any Chat Completions-compatible endpoint | `openai` | `OpenAiLlm("qwen3:8b")` | `OPENAI_API_KEY`; `OPENAI_BASE_URL` for another host, e.g. Ollama at `http://localhost:11434/v1` with any key |
-| `AnthropicLlm` — Anthropic and any Messages-compatible endpoint | `anthropic` | `AnthropicLlm("claude-sonnet-5")` | `ANTHROPIC_API_KEY`; `ANTHROPIC_BASE_URL` for another host |
+| `AnthropicLlm` — Anthropic and any Messages-compatible endpoint | `anthropic` | `AnthropicLlm("claude-sonnet-5-5")` | `ANTHROPIC_API_KEY`; `ANTHROPIC_BASE_URL` for another host |
 
 For OpenAI itself, `OpenAiResponsesLlm`; `OpenAiLlm` is for a server that
 speaks only Chat Completions (Ollama and its kin). `extra` is merged into

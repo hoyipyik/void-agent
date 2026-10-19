@@ -286,17 +286,17 @@ def test_the_request_asks_for_the_effort_and_a_claude_that_takes_one_thinks() ->
     opus = Config(
         provider="anthropic",
         anthropic_api_key="k",
-        anthropic_model="claude-opus-4-8",
+        anthropic_model="claude-opus-5-5",
         anthropic_effort="xhigh",
     )
-    # Opus 4.8 does not think unless told: the effort is how hard it thinks.
+    # Some Claudes do not think unless told: the effort is how hard it thinks.
     assert extra_for(opus) == {
         "thinking": {"type": "adaptive"},
         "output_config": {"effort": "xhigh"},
     }
     assert extra_for(replace(opus, anthropic_effort="")) == {
         "thinking": {"type": "adaptive"},
-        "output_config": {"effort": "high"},
+        "output_config": {"effort": "medium"},
     }
     assert extra_for(replace(opus, anthropic_model="claude-haiku-4-5")) is None
     assert extra_for(Config(provider="ollama", ollama_model="qwen3:8b")) is None
@@ -306,7 +306,7 @@ def test_only_a_claude_that_thinks_gets_room_for_its_thinking() -> None:
     """The ceiling is raised where thinking spends it, and left the
     adapter's own everywhere else: a model the catalogue lacks may take
     less than the raised one and would refuse the request."""
-    opus = Config(provider="anthropic", anthropic_api_key="k", anthropic_model="claude-opus-4-8")
+    opus = Config(provider="anthropic", anthropic_api_key="k", anthropic_model="claude-opus-5-5")
     assert max_tokens_for(opus) == 64_000
     assert max_tokens_for(replace(opus, anthropic_model="claude-haiku-4-5")) is None
     assert max_tokens_for(replace(opus, anthropic_model="claude-unlisted")) is None

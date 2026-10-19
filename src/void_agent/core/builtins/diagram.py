@@ -48,6 +48,9 @@ DIAGRAM_RULES = (
     'compare several series as lines, and name each one (`line "Paid" [1, 2]`): only '
     "a named series appears in the legend. Scale large numbers (thousands, millions) "
     "and name the unit in the axis title.\n"
+    "- Category names longer than about ten characters overlap under an upright chart: "
+    "write `xychart-beta horizontal` for those, where each name gets a row of its own. "
+    "Keep the upright form for short labels — months, quarters, codes.\n"
     "- At most eight series or slices, and about fifteen nodes; past that, split it "
     "into several diagrams.\n"
     "- One statement per line. Ids are plain ASCII words (`A`, `auth_service`), never "

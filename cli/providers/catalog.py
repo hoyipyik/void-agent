@@ -19,14 +19,14 @@ from dataclasses import dataclass
 from typing import Literal
 
 Provider = Literal["anthropic", "openai", "ollama"]
-PROVIDERS: tuple[Provider, ...] = ("openai", "anthropic", "ollama")
+PROVIDERS: tuple[Provider, ...] = ("anthropic", "openai", "ollama")
 PROVIDER_LABELS: dict[Provider, str] = {
     "openai": "OpenAI",
     "anthropic": "Anthropic",
     "ollama": "Ollama",
 }
 # The providers that take a key; Ollama is a local server and takes none.
-KEYED: tuple[Provider, ...] = ("openai", "anthropic")
+KEYED: tuple[Provider, ...] = ("anthropic", "openai")
 KEY_VARIABLES: dict[Provider, str] = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
@@ -66,8 +66,77 @@ OR_NONE_NO_MAX = ("none", *NO_MAX)
 
 
 # The recommended model of each keyed provider is its default and heads
-# its group. OpenAI comes first: GPT-6 Luna is what the CLI starts on.
+# its group. Anthropic comes first: Haiku 5.5 is what the CLI starts on.
 CATALOG: tuple[ModelInfo, ...] = (
+    ModelInfo(
+        "anthropic",
+        "claude-haiku-5-5",
+        "Haiku 5.5",
+        "the quickest and the cheapest",
+        True,
+        efforts=EFFORTS,
+        # Its API's own is medium. Anthropic advises high for longer agent
+        # tasks: at low and medium, in a long agent prompt, it more often
+        # stops early or reports a change done without checking it.
+        default_effort="high",
+    ),
+    ModelInfo(
+        "anthropic",
+        "claude-opus-5",
+        "Opus 5",
+        "complex reasoning and coding",
+        efforts=EFFORTS,
+        default_effort="high",
+    ),
+    ModelInfo(
+        "anthropic",
+        "claude-sonnet-5",
+        "Sonnet 5",
+        "fast and balanced, for everyday work",
+        efforts=EFFORTS,
+        default_effort="high",
+    ),
+    ModelInfo("anthropic", "claude-haiku-4-5", "Haiku 4.5", "the previous Haiku"),
+    ModelInfo(
+        "anthropic",
+        "claude-fable-5-1",
+        "Fable 5.1",
+        "the most capable: long, hard tasks",
+        efforts=EFFORTS,
+        default_effort="high",
+    ),
+    ModelInfo(
+        "anthropic",
+        "claude-opus-4-8",
+        "Opus 4.8",
+        "the previous Opus",
+        efforts=EFFORTS,
+        default_effort="high",
+    ),
+    ModelInfo(
+        "anthropic",
+        "claude-opus-4-7",
+        "Opus 4.7",
+        "an earlier Opus",
+        efforts=EFFORTS,
+        default_effort="high",
+    ),
+    ModelInfo(
+        "anthropic",
+        "claude-opus-4-6",
+        "Opus 4.6",
+        "an earlier Opus",
+        efforts=NO_XHIGH,
+        default_effort="high",
+    ),
+    ModelInfo(
+        "anthropic",
+        "claude-sonnet-4-6",
+        "Sonnet 4.6",
+        "the previous Sonnet",
+        efforts=NO_XHIGH,
+        default_effort="high",
+    ),
     ModelInfo(
         "openai",
         "gpt-6-luna",
@@ -144,64 +213,6 @@ CATALOG: tuple[ModelInfo, ...] = (
         "the cheapest: simple, high-volume tasks",
         efforts=OR_NONE_NO_MAX,
         default_effort="low",
-    ),
-    ModelInfo(
-        "anthropic",
-        "claude-opus-5",
-        "Opus 5",
-        "complex reasoning and coding",
-        True,
-        efforts=EFFORTS,
-        default_effort="high",
-    ),
-    ModelInfo(
-        "anthropic",
-        "claude-sonnet-5",
-        "Sonnet 5",
-        "fast and balanced, for everyday work",
-        efforts=EFFORTS,
-        default_effort="high",
-    ),
-    ModelInfo("anthropic", "claude-haiku-4-5", "Haiku 4.5", "the quickest and the cheapest"),
-    ModelInfo(
-        "anthropic",
-        "claude-fable-5-1",
-        "Fable 5.1",
-        "the most capable: long, hard tasks",
-        efforts=EFFORTS,
-        default_effort="high",
-    ),
-    ModelInfo(
-        "anthropic",
-        "claude-opus-4-8",
-        "Opus 4.8",
-        "the previous Opus",
-        efforts=EFFORTS,
-        default_effort="high",
-    ),
-    ModelInfo(
-        "anthropic",
-        "claude-opus-4-7",
-        "Opus 4.7",
-        "an earlier Opus",
-        efforts=EFFORTS,
-        default_effort="high",
-    ),
-    ModelInfo(
-        "anthropic",
-        "claude-opus-4-6",
-        "Opus 4.6",
-        "an earlier Opus",
-        efforts=NO_XHIGH,
-        default_effort="high",
-    ),
-    ModelInfo(
-        "anthropic",
-        "claude-sonnet-4-6",
-        "Sonnet 4.6",
-        "the previous Sonnet",
-        efforts=NO_XHIGH,
-        default_effort="high",
     ),
 )
 

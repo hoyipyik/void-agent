@@ -19,7 +19,18 @@ def test_the_environment_names_the_provider(tmp_path: Path) -> None:
     config = load_config({"ANTHROPIC_API_KEY": "sk-env"}, tmp_path / "config.json")
     assert config.provider == "anthropic"
     assert config.api_key == "sk-env"
-    assert config.model == "claude-opus-5"
+    assert config.model == "claude-haiku-5-5"
+
+
+def test_with_both_cloud_keys_and_no_choice_saved_the_cli_starts_on_claude_haiku_5_5(
+    tmp_path: Path,
+) -> None:
+    config = load_config({"ANTHROPIC_API_KEY": "a", "OPENAI_API_KEY": "o"}, tmp_path / "c.json")
+    assert (config.provider, config.model, config.effort) == (
+        "anthropic",
+        "claude-haiku-5-5",
+        "high",
+    )
 
 
 def test_an_openai_key_alone_names_openai_with_its_model_and_base_url(tmp_path: Path) -> None:

@@ -20,6 +20,12 @@ def test_every_cloud_provider_has_one_recommended_model_and_it_is_the_default() 
         assert DEFAULT_MODELS[provider] == recommended[0].id
 
 
+def test_the_cli_starts_on_anthropic_and_its_default_is_claude_haiku_5_5() -> None:
+    """Anthropic heads the providers, in the key prompt and in `/model`."""
+    assert PROVIDERS[0] == KEYED[0] == "anthropic"
+    assert DEFAULT_MODELS["anthropic"] == "claude-haiku-5-5"
+
+
 def test_ollama_is_a_provider_without_a_catalogue_or_a_key() -> None:
     assert "ollama" in PROVIDERS
     assert "ollama" not in KEYED
@@ -68,6 +74,7 @@ def test_each_model_takes_the_efforts_its_own_api_accepts() -> None:
     assert efforts("claude-opus-5") == ("low", "medium", "high", "xhigh", "max")
     assert "xhigh" not in efforts("claude-opus-4-6")
     assert efforts("claude-haiku-4-5") == ()
+    assert efforts("claude-haiku-5-5") == ("low", "medium", "high", "xhigh", "max")
 
 
 def test_no_reasoning_is_a_choice_never_a_default() -> None:
@@ -76,6 +83,15 @@ def test_no_reasoning_is_a_choice_never_a_default() -> None:
     for model in CATALOG:
         assert model.default_effort != "none"
         assert "none" not in model.efforts[1:]
+
+
+def test_haiku_5_5_starts_at_high_effort() -> None:
+    """Its API's own is medium. Anthropic advises high for longer agent
+    tasks: at low and medium, in a long agent prompt, it more often stops
+    early or reports a change done without checking it."""
+    haiku = describe("claude-haiku-5-5")
+    assert haiku is not None
+    assert haiku.default_effort == "high"
 
 
 def test_luna_starts_at_its_most_effort() -> None:

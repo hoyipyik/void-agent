@@ -279,11 +279,11 @@ async def test_slash_model_alone_opens_the_picker_and_a_digit_picks(tmp_path: Pa
         await pilot.press(*"/model", "enter")
         await pilot.pause()
         assert isinstance(app.screen, ModelPicker)
-        # OpenAI heads the catalogue: GPT-6 Luna, then Terra
+        # Anthropic heads the catalogue: Haiku 5.5, then Opus 5
         await pilot.press("2")
         await pilot.pause()
         assert not isinstance(app.screen, ModelPicker)
-        assert (app.config.provider, app.config.model) == ("openai", "gpt-5.6-terra")
+        assert (app.config.provider, app.config.model) == ("anthropic", "claude-opus-5")
 
 
 LUNA = Config(provider="openai", openai_api_key="k", openai_model="gpt-6-luna")
@@ -579,7 +579,7 @@ async def test_an_ollama_without_a_model_that_can_call_tools_is_not_offered(
         await pilot.press(*"/key", "enter")
         await pilot.pause()
         assert isinstance(app.screen, KeyPrompt)
-        assert offered_providers(app) == ["openai", "anthropic"]
+        assert offered_providers(app) == ["anthropic", "openai"]
 
 
 async def test_without_a_usable_ollama_the_first_prompt_offers_the_keyed_providers_only(
@@ -589,7 +589,7 @@ async def test_without_a_usable_ollama_the_first_prompt_offers_the_keyed_provide
     async with app.run_test() as pilot:
         await pilot.pause()
         assert isinstance(app.screen, KeyPrompt)
-        assert offered_providers(app) == ["openai", "anthropic"]
+        assert offered_providers(app) == ["anthropic", "openai"]
         await pilot.press("3")  # no third row to jump to
         await pilot.pause()
         assert isinstance(app.screen, KeyPrompt)
@@ -617,7 +617,7 @@ async def test_a_bare_ollama_name_is_checked_against_what_is_installed(tmp_path:
         await pilot.press(*"/model qwen3:9b", "enter")
         await pilot.pause()
         assert app.query(".error")  # not installed: nothing changed
-        assert (app.config.provider, app.config.model) == ("anthropic", "claude-opus-5")
+        assert (app.config.provider, app.config.model) == ("anthropic", "claude-haiku-5-5")
         await pilot.press(*"/model qwen3:8b", "enter")
         await pilot.pause()
         assert (app.config.provider, app.config.model) == ("ollama", "qwen3:8b")
@@ -648,7 +648,7 @@ async def test_the_key_prompt_offers_ollama_which_opens_the_picker_instead(
     async with app.run_test() as pilot:
         await pilot.pause()
         assert isinstance(app.screen, KeyPrompt)
-        assert offered_providers(app) == ["openai", "anthropic", "ollama"]  # it has a usable model
+        assert offered_providers(app) == ["anthropic", "openai", "ollama"]  # it has a usable model
         await pilot.press("3")
         await pilot.pause()
         assert isinstance(app.screen, ModelPicker)
@@ -682,16 +682,16 @@ async def test_without_a_key_the_app_asks_for_a_provider_then_its_key(tmp_path: 
         assert isinstance(app.screen, KeyPrompt)
         key = app.screen.query_one("#key", Input)
         assert not key.display  # the provider comes first
-        await pilot.press("enter")  # OpenAI, the first row
+        await pilot.press("enter")  # Anthropic, the first row
         await pilot.pause()
         assert key.display
         key.value = "sk-typed"
         await pilot.press("enter")
         await pilot.pause()
         assert not isinstance(app.screen, KeyPrompt)
-        assert (app.config.provider, app.config.api_key) == ("openai", "sk-typed")
+        assert (app.config.provider, app.config.api_key) == ("anthropic", "sk-typed")
     saved = json.loads((tmp_path / "config.json").read_text())
-    assert saved["openai_api_key"] == "sk-typed"
+    assert saved["anthropic_api_key"] == "sk-typed"
 
 
 async def test_an_unknown_command_is_explained_not_sent(tmp_path: Path) -> None:
@@ -1469,13 +1469,13 @@ async def test_the_welcome_box_drops_its_key_warning_once_a_key_is_saved(tmp_pat
         welcome = app.query_one(Welcome)
         assert "no API key yet" in welcome.details
         assert isinstance(app.screen, KeyPrompt)
-        await pilot.press("enter")  # OpenAI, the first row
+        await pilot.press("enter")  # Anthropic, the first row
         await pilot.pause()
         app.screen.query_one("#key", Input).value = "sk-typed"
         await pilot.press("enter")
         await pilot.pause()
         assert "no API key yet" not in welcome.details
-        assert "OpenAI" in welcome.details
+        assert "Anthropic" in welcome.details
 
 
 async def test_a_resumed_session_keeps_its_header_too(tmp_path: Path) -> None:

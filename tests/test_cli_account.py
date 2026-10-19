@@ -42,7 +42,7 @@ def test_a_round_trips_cost_names_the_cache_only_when_it_served() -> None:
 
 
 def test_the_bar_names_the_context_and_the_account_once_a_round_trip_said() -> None:
-    model = "Anthropic · claude-opus-5 · high effort"  # what it runs at when nothing is asked
+    model = "Anthropic · claude-haiku-5-5 · high effort"  # what it runs at when nothing is asked
     assert bar_label(CONFIGURED, "universal") == f"universal · {model}"
     assert bar_label(CONFIGURED, "universal", 12_345) == f"universal · {model} · 12k ctx"
     assert bar_label(CONFIGURED, "universal", 12_345, Usage(input=51_234, output=2_345)) == (

@@ -32,6 +32,10 @@ or an answer — goes straight to the person from wherever it arose.
   projection for the UI, one for the model. No task, no journal, no resume.
 - **About 2,000 lines, pydantic only.** One concept per file; provider
   SDKs behind optional extras.
+- **Evals that keep everything.** `void_agent.evals` asks your agent a set
+  of questions as each kind of user, with a model playing the person when
+  the agent asks back, and writes every step, call and event to files for
+  you, or another model, to grade.
 
 ## The framework
 
@@ -197,13 +201,14 @@ async def with_files() -> None:
         print(await assistant.run("What is in /data?"))
 ```
 
-- `McpServer.stdio(command, *args, env=…)` runs a server as a subprocess;
-  `McpServer.http(url, headers=…, timeout=…)` connects to a hosted one,
-  `headers` carrying its token. Keep the `async with` open for as long as
-  the agent may run: the connection is a lifecycle, not a call.
-- `timeout` is the seconds a hosted server may take to be mounted and to
-  answer each call. Without it the waits are the SDK's own, and one stuck
-  call holds a turn for five minutes. A call that runs out fails the run
+- `McpServer.stdio(command, *args, env=…, timeout=…)` runs a server as a
+  subprocess; `McpServer.http(url, headers=…, timeout=…)` connects to a
+  hosted one, `headers` carrying its token. Keep the `async with` open for
+  as long as the agent may run: the connection is a lifecycle, not a call.
+- `timeout` is the seconds a server may take to be mounted (for a command:
+  the process started and the handshake done) and to answer each call.
+  Without it, a hosted server's waits are the SDK's own, and one stuck
+  call holds a turn for five minutes; a command's are unbounded. A call that runs out fails the run
   like any broken transport; the model is not told.
 - `files.names` lists the tools; `files.describe(name)` is the server's own
   descriptor; `files.tool(name, approval=…)` mounts one;
@@ -234,30 +239,153 @@ async def with_files() -> None:
   With nobody attending, the turn ends with the card open instead of running
   it — the model never decides whether a side effect runs.
 
-### Evals
+## Evals
 
-`void_agent.evals` puts a fixed set of questions to your agent, as each
-kind of user who would ask them, and writes down every run whole: each
-step with what the model read and returned, each tool call with its whole
-result, every event. It judges nothing; a case says what a good answer
-does, for whoever reads the run.
+`void_agent.evals` puts a fixed set of questions to your agent and writes
+down everything that happened. It runs the agent the way a server does —
+your own builder, called afresh each turn with the conversation so far —
+and records at the runtime's three seams: every model step (what it read
+that was new, what it returned), every tool call (input and whole result),
+every event. When the agent asks the person something, a second model
+plays that person from a brief the agent never sees. It judges nothing:
+each case says what a good answer does, and you, or a model you hand the
+run to, grade it.
 
 ```bash
-pip install "void-agent[evals,anthropic]"   # the extra of each provider a suite names
-python -m void_agent.evals list  examples/evals/eval.toml
-python -m void_agent.evals run   examples/evals/eval.toml --repeat 2
-python -m void_agent.evals show  examples/evals/runs/<run> price-change
+pip install "void-agent[evals,anthropic]"   # plus the extra of each provider a suite names
 ```
 
-A suite is your files: an `eval.toml` naming your agent's builder
-(`build(llm, tools) -> Agent`), the model, the MCP servers and the personas
-(each with its own credentials and tool filter), and cases files of
-questions with their `intent`, `expect` and, for a vague one, a `brief`
-that a model plays the person from. `examples/evals/` is one, over the
-toolbox server and four made-up orders.
-[`src/void_agent/evals/README.md`](src/void_agent/evals/README.md) is the
-reference; [`skill/SKILL.md`](src/void_agent/evals/skill/SKILL.md) beside it
-is a skill for a coding agent that runs evals with it.
+### A suite in three files
+
+The example in [`examples/evals/`](examples/evals/) asks about a folder
+with one file, `orders.csv`, through void's own toolbox server.
+
+`agent.py` — the builder. In an application, name the one it already has:
+it takes the model and the mounted tools and returns the agent.
+
+```python
+def build(llm: Llm, tools: Sequence[Tool]) -> Agent:
+    agent = (
+        Agent(llm, "orders", "answers questions about the orders in a folder of files")
+        .with_system("You answer questions about the orders in the files your tools can read. …")
+        .prompt(lambda history: list(history))
+        .tool(HUMAN)
+    )
+    for tool in tools:
+        agent.tool(tool)
+    return agent
+```
+
+`eval.toml` — the model, where the tools come from, who asks:
+
+```toml
+name = "example"
+agent = "agent.py:build"
+cases = ["cases.toml"]
+runs = "runs"                       # keep it out of git: it holds what the tools returned
+
+[model]
+provider = "openai"
+model = "gpt-6-luna"
+effort = "low"
+
+[person]                            # plays the person of a case with a brief
+provider = "openai"
+model = "gpt-6-luna"
+role = "someone at a small trading company who asks about its orders"
+
+[servers.toolbox]                   # an MCP server: `command` (+ args, env) or `url` (+ headers)
+command = "uv"
+args = ["run", "python", "-m", "cli", "--serve-toolbox", "${SUITE_DIR}/data"]
+timeout = 60
+
+[personas.reader]                   # its own credentials (servers.<name>.headers) and tool filter
+exclude = ["write_file", "edit_file", "move_file", "run"]
+```
+
+`cases.toml` — one conversation per case:
+
+```toml
+persona = "reader"
+
+[[cases]]
+id = "price-change"
+ask = "How did Northwind's price for the Panel PC 15 change?"
+intent = "Reads the orders: 862 USD on PI-101, then 885 USD on PI-102."
+expect = { outcome = "answered", uses_any = ["search", "read_file", "read_files"] }
+
+[[cases]]
+id = "vague-price"
+ask = "what did we charge them for the box pc"
+intent = "Two customers bought the Box PC i5; asks which, then gives that one's price."
+brief = "You mean Fabrikam, the French one. You want the unit price on their order."
+```
+
+`intent` is the grading key: write the right answer into it, worked out
+from the data. `expect` holds only what a run can check by itself — the
+outcome, tools called or avoided, how many calls.
+
+### Running it
+
+```console
+$ python -m void_agent.evals list examples/evals/eval.toml          # reads the files; free
+price-change     reader   How did Northwind's price for the Panel PC 15 change? [price]
+vague-price      reader   what did we charge them for the box pc [price, ambiguity]
+…
+5 cases of 5 in example
+
+$ python -m void_agent.evals mount examples/evals/eval.toml --persona reader   # connects; no model
+  read_file        offered   sha256:5ac734b4…
+  write_file       withheld  sha256:2aa5192c…
+7 offered, 4 withheld
+
+$ uv run --env-file .env python -m void_agent.evals run examples/evals/eval.toml --jobs 4 --repeat 2
+5 cases, 2 times each -> examples/evals/runs/20261106-101500
+…
+report: examples/evals/runs/20261106-101500/report.md
+```
+
+A run is a folder: `run.json` (what ran — the model, the void-agent commit,
+your repositories' commits), `cases/<key>.json` (one whole record per case,
+written whole or not at all, so `--resume` asks only what is missing), and
+`report.md` (outcomes per persona, calls per tool, the expectations
+missed). `show` opens one case step by step:
+
+```console
+$ python -m void_agent.evals show examples/evals/runs/20261106-101500 vague-price~1   # shortened
+### vague-price~1
+reader · answered · 3 steps · 2 calls · 9.1 s · price, ambiguity
+> what did we charge them for the box pc
+Step 1 · list_files({"glob":"*"}) → ok, 10 chars
+Step 2 · read_file({"path":"orders.csv"}) → ok, 310 chars
+Step 3 · For the Box PC i5, we charged $243 per unit to Contoso Ltd (40 units).
+         We also charged €251 per unit to Fabrikam SAS (20 units).
+```
+
+Here the agent answered both instead of asking which customer: the figures
+match what `read_file` returned, the intent asked for a question first.
+That is the kind of verdict the records let a grader reach and show the
+step for.
+
+### The skill
+
+[`src/void_agent/evals/skill/SKILL.md`](src/void_agent/evals/skill/SKILL.md)
+is a skill for a coding agent that evaluates an agent with this module:
+how to write cases and intents, check a suite before spending, run, and
+read and grade a run (blind, repeated, with a held-out set). It ships in
+the wheel. For Claude Code, link it into your skills:
+
+```bash
+ln -s "$(python -c 'import void_agent.evals as e, pathlib; print(pathlib.Path(e.__file__).parent / "skill")')" \
+      ~/.claude/skills/void-agent-evals
+```
+
+or copy the file into a project's `.claude/skills/void-agent-evals/`.
+The same folder works on void's own shelf (`~/.void/skills/`).
+
+Every key of a suite, every field of a record and the commands' flags are
+in the module's reference,
+[`src/void_agent/evals/README.md`](src/void_agent/evals/README.md).
 
 ## The terminal UI
 

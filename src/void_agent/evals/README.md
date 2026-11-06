@@ -108,6 +108,7 @@ signed = ["refund_*"]               # tools whose every call needs the person's 
 command = "uv"
 args = ["run", "my-server", "${SUITE_DIR}/data"]
 env = { DATA_MODE = "read-only" }
+timeout = 30                        # for a command too: the process started and the handshake done
 
 [personas.manager]                  # who a question is asked as
 description = "sees every tool"

@@ -56,9 +56,18 @@ Everything — the framework has not been released yet.
   SDK raised a nested exception group for all of them and folded a 401
   into the same error as a 500. `McpServer.http(…, timeout=…)` bounds the
   mount and each call; the SDK's own five minutes for an answer had no
-  parameter here.
+  parameter here. `McpServer.stdio(…, timeout=…)` does the same for a
+  server run as a command, whose waits were otherwise unbounded: a process
+  that started and never spoke the protocol held its mount forever.
   `void_agent.skills`: a folder of Markdown as tools
   whose whole effect is text in the transcript.
+- `void_agent.evals` (the `evals` extra; `python -m void_agent.evals`): a
+  suite's questions put to an agent as each persona, the agent built by the
+  suite's own builder each turn the way a server builds it, every model
+  step, tool call and event recorded whole, and a model playing the person
+  of a vague case from a brief the agent never sees. It judges nothing;
+  `report` and `show` read a run back. Its reference (README.md) and a
+  skill for an agent that runs it (skill/SKILL.md) ship beside it.
 - The terminal UI (`cli/`, repo-only): the runtime in-process, the
   protocol rendered from parts, cards answered with the keys, the model's
   questions in the composer, attachments as `file` parts. Three agents:

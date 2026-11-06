@@ -28,7 +28,7 @@ def open_server(spec: ServerSpec) -> McpServer:
     """The real thing: an HTTP session, or a subprocess."""
     if spec.url:
         return McpServer.http(spec.url, headers=spec.headers or None, timeout=spec.timeout)
-    return McpServer.stdio(spec.command, *spec.args, env=spec.env or None)
+    return McpServer.stdio(spec.command, *spec.args, env=spec.env or None, timeout=spec.timeout)
 
 
 def expanded(spec: ServerSpec, env: Mapping[str, str], persona: str) -> ServerSpec:

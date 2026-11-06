@@ -1,17 +1,20 @@
 """A run of the chosen cases: asked side by side, up to `jobs` at a time,
 each `repeat` times; every record written as it lands and announced.
-The manifest says what was run — the suite, the agent, the model, which
-revision of each repository the agent came from — before the first case
-starts, and when the last one ended."""
+The manifest says what was run — the suite, the agent, the model, the
+void-agent that asked, which revision of each repository the agent came
+from — before the first case starts, and when the last one ended."""
 
 from __future__ import annotations
 
 import asyncio
+import json
 import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import asdict
 from datetime import datetime
+from importlib import metadata
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 from void_agent.evals.case import Setup, run_case
 from void_agent.evals.record import Record, jsonable
@@ -49,8 +52,29 @@ def revision(path: Path) -> Record | None:
         return None
 
 
+def runtime() -> Record | None:
+    """The void-agent that asks the cases: the commit a git install came
+    from, or, installed from a folder, that checkout's revision. Never the
+    package's own folder, which inside a project's virtualenv is the
+    project's repository."""
+    try:
+        installed = metadata.distribution("void-agent")
+    except metadata.PackageNotFoundError:
+        return None
+    found: Record = json.loads(installed.read_text("direct_url.json") or "{}")
+    url: str = found.get("url", "")
+    vcs: Record = found.get("vcs_info") or {}
+    commit: str | None = vcs.get("commit_id")
+    if commit:
+        return {"version": installed.version, "url": url, "commit": commit}
+    if url.startswith("file://"):
+        checkout = revision(Path(unquote(urlparse(url).path)))
+        if checkout is not None:
+            return {"version": installed.version, **checkout}
+    return {"version": installed.version, "url": url}
+
+
 def manifest_of(suite: Suite, keys: Sequence[str], label: str = "") -> Record:
-    here = Path(__file__).resolve().parent.parent
     return {
         "suite": suite.name,
         "config": str(suite.config),
@@ -69,9 +93,8 @@ def manifest_of(suite: Suite, keys: Sequence[str], label: str = "") -> Record:
             }
             for name, persona in suite.personas.items()
         },
-        "revisions": [
-            found for path in (here, *suite.paths) if (found := revision(path)) is not None
-        ],
+        "void_agent": runtime(),
+        "revisions": [found for path in suite.paths if (found := revision(path)) is not None],
         "keys": list(keys),
         "started_at": _now(),
     }

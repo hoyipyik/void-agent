@@ -299,6 +299,20 @@ def _read(entries: Sequence[Record]) -> list[str]:
     return lines
 
 
+def _revision(found: Record) -> str:
+    dirty = ", with changes" if found.get("dirty") else ""
+    return f"{found['commit'][:10]} ({found['branch']}{dirty})"
+
+
+def _runtime_line(runtime: Record) -> str:
+    line = f"- void-agent {runtime.get('version', '?')}"
+    if "path" in runtime:
+        return f"{line}, `{runtime['path']}` at {_revision(runtime)}"
+    if "commit" in runtime:
+        return f"{line} at {runtime['commit'][:10]} ({runtime.get('url', '?')})"
+    return line
+
+
 def render(summary: Summary) -> str:
     manifest = summary.manifest
     records = summary.records
@@ -313,9 +327,11 @@ def render(summary: Summary) -> str:
         f"- Started {manifest.get('started_at', '?')},"
         f" finished {manifest.get('finished_at', '-')}",
     ]
+    runtime = manifest.get("void_agent")
+    if runtime:
+        lines.append(_runtime_line(runtime))
     for found in manifest.get("revisions", []):
-        dirty = ", with changes" if found.get("dirty") else ""
-        lines.append(f"- `{found['path']}` at {found['commit'][:10]} ({found['branch']}{dirty})")
+        lines.append(f"- `{found['path']}` at {_revision(found)}")
     lines += [
         f"- {len(records)} cases: "
         + " · ".join(f"{outcomes[name]} {name}" for name in OUTCOME_ORDER if outcomes[name]),

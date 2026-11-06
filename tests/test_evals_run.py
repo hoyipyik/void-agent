@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -232,3 +233,52 @@ def test_an_agent_file_may_declare_dataclasses(tmp_path: Path) -> None:
     builder = load_builder(f"{tmp_path / 'typed_agent.py'}:build", ())
 
     assert builder(Answering(), []) == "shop"  # type: ignore[comparison-overlap]
+
+
+class _Installed:
+    """What importlib.metadata finds for void-agent installed from git."""
+
+    version = "0.1.0"
+
+    def read_text(self, name: str) -> str | None:
+        assert name == "direct_url.json"
+        return json.dumps(
+            {
+                "url": "https://github.com/hoyipyik/void-agent",
+                "vcs_info": {"vcs": "git", "commit_id": "abc123", "requested_revision": "abc123"},
+            }
+        )
+
+
+def test_the_manifest_names_the_void_agent_a_git_install_came_from(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import void_agent.evals.run as module
+
+    def installed(name: str) -> _Installed:
+        return _Installed()
+
+    monkeypatch.setattr(module.metadata, "distribution", installed)
+
+    manifest = module.manifest_of(suite(tmp_path, "one"), ["one"])
+
+    assert manifest["void_agent"] == {
+        "version": "0.1.0",
+        "url": "https://github.com/hoyipyik/void-agent",
+        "commit": "abc123",
+    }
+
+
+def test_the_manifest_names_the_checkout_void_agent_runs_from(tmp_path: Path) -> None:
+    from void_agent.evals.run import manifest_of
+
+    root = Path(__file__).resolve().parent.parent
+    head = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+    manifest = manifest_of(suite(tmp_path, "one"), ["one"])
+
+    assert manifest["void_agent"]["commit"] == head
+    assert manifest["void_agent"]["path"] == str(root)
+    assert all("void_agent" not in found["path"] for found in manifest["revisions"])

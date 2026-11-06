@@ -178,3 +178,18 @@ async def test_the_report_marks_what_the_person_said_and_what_they_answered_in_p
     text = "\n".join(render_case(record))
     assert "> *(person)* the british one" in text
     assert "*Asked in place:* This year or last? → ok" in text
+
+
+async def test_the_report_names_the_void_agent_that_asked(tmp_path: Path) -> None:
+    run = await ran(tmp_path, SCRIPT, [TOP, STATUS])
+    manifest = run.manifest()
+    manifest["void_agent"] = {
+        "version": "0.1.0",
+        "url": "https://example.org/va",
+        "commit": "abc1234567890",
+    }
+    run.write_manifest(manifest)
+
+    text = render(summarize(run))
+
+    assert "- void-agent 0.1.0 at abc1234567 (https://example.org/va)" in text

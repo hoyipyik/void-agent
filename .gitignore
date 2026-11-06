@@ -16,3 +16,7 @@ build/
 
 # the CLI reading guide: local, published as an artifact instead
 doc/cli-guide.html
+doc/evals-guide.html
+
+# What an eval run writes beside its suite.
+/examples/*/runs/

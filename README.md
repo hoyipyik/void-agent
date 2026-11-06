@@ -37,8 +37,8 @@ or an answer — goes straight to the person from wherever it arose.
 
 ### Install
 
-Python 3.12+. Extras: `openai`, `anthropic`, `mcp` — keep the ones you need
-in the brackets, or none for the pydantic-only core.
+Python 3.12+. Extras: `openai`, `anthropic`, `mcp`, `evals` — keep the ones
+you need in the brackets, or none for the pydantic-only core.
 
 **Online, nothing to download.** pip fetches the wheel from the release:
 
@@ -233,6 +233,31 @@ async def with_files() -> None:
 - A gated call is put to whoever attends the run (`agent.run(…, human=…)`).
   With nobody attending, the turn ends with the card open instead of running
   it — the model never decides whether a side effect runs.
+
+### Evals
+
+`void_agent.evals` puts a fixed set of questions to your agent, as each
+kind of user who would ask them, and writes down every run whole: each
+step with what the model read and returned, each tool call with its whole
+result, every event. It judges nothing; a case says what a good answer
+does, for whoever reads the run.
+
+```bash
+pip install "void-agent[evals,anthropic]"   # the extra of each provider a suite names
+python -m void_agent.evals list  examples/evals/eval.toml
+python -m void_agent.evals run   examples/evals/eval.toml --repeat 2
+python -m void_agent.evals show  examples/evals/runs/<run> price-change
+```
+
+A suite is your files: an `eval.toml` naming your agent's builder
+(`build(llm, tools) -> Agent`), the model, the MCP servers and the personas
+(each with its own credentials and tool filter), and cases files of
+questions with their `intent`, `expect` and, for a vague one, a `brief`
+that a model plays the person from. `examples/evals/` is one, over the
+toolbox server and four made-up orders.
+[`src/void_agent/evals/README.md`](src/void_agent/evals/README.md) is the
+reference; [`skill/SKILL.md`](src/void_agent/evals/skill/SKILL.md) beside it
+is a skill for a coding agent that runs evals with it.
 
 ## The terminal UI
 

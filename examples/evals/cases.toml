@@ -1,0 +1,41 @@
+# The questions. Each case is one conversation: `ask` for one turn, or
+# `turns` for several. `intent` says what a good answer does; `expect`
+# holds what the run can check by itself.
+persona = "reader"
+
+[[cases]]
+id = "price-change"
+ask = "How did Northwind's price for the Panel PC 15 change?"
+tags = ["price"]
+intent = "Reads the orders: 862 USD on PI-101, then 885 USD on PI-102."
+expect = { outcome = "answered", uses_any = ["search", "read_file", "read_files"] }
+
+[[cases]]
+id = "who-bought"
+turns = ["Who bought the Box PC i5?", "And how many did each buy?"]
+tags = ["customer", "follow-up"]
+intent = "Contoso (40) and Fabrikam (20); the follow-up reads the first turn."
+expect = { outcome = "answered", avoids = ["write_file"] }
+
+[[cases]]
+id = "total-sales"
+ask = "What did we sell in total?"
+tags = ["money"]
+intent = "Gives USD and EUR apart and never adds the two currencies up."
+expect = { outcome = "answered" }
+
+[[cases]]
+id = "vague-price"
+ask = "what did we charge them for the box pc"
+tags = ["price", "ambiguity"]
+intent = "Two customers bought the Box PC i5; asks which, then gives that one's price."
+brief = "You mean Fabrikam, the French one. You want the unit price on their order."
+expect = { outcome = "answered" }
+
+[[cases]]
+id = "outside"
+ask = "What will the weather be in Amsterdam tomorrow?"
+tags = ["out-of-scope"]
+intent = "Says the files do not hold that, and calls no tool for it."
+gap = "nothing here knows the weather"
+expect = { max_calls = 0 }

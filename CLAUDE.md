@@ -35,6 +35,18 @@ src/void_agent/mcp       the bridge: an MCP server's tools as `Tool`s
 src/void_agent/skills    a folder of instructions as tools: only the
                          description stays in context, the body arrives on
                          the call; knowledge, never capability
+src/void_agent/evals     questions put to an agent, every run written
+                         down whole: a suite's config names a builder of
+                         the model and the mounted tools, the model, the
+                         MCP servers and the personas a question is asked
+                         as; each step is kept with what the model read
+                         and returned, each call with its whole result,
+                         every event; `report` reads a run back;
+                         `python -m void_agent.evals` (`make evals
+                         ARGS="run CONFIG"`). It holds no suite and knows
+                         no trade: a suite's files are its owner's.
+                         README.md is its reference, skill/SKILL.md the
+                         skill for an agent using it; see its CLAUDE.md
 src/void_agent/__init__  the public API; users import from `void_agent`
 cli/                     the terminal UI, in-process (repo-only, not
                          packaged): the `universal` agent — the model, a
@@ -56,6 +68,8 @@ cli/                     the terminal UI, in-process (repo-only, not
                          Ollama (its OpenAI-compatible `/v1`, the installed
                          list read live); `make cli` runs it, `make
                          cli-build` packs dist/void; see cli/CLAUDE.md
+examples/evals/          a suite for void_agent.evals: a small agent over
+                         the toolbox server and four made-up orders
 scripts/                 pack.py — the CLI as one binary (`make
                          cli-build`); smoke_toolbox.py — one
                          MCP round trip against a packed binary;
@@ -71,7 +85,8 @@ Dependencies point one way inside core: `messages → content`,
 `llm → content/events/errors/usage`, `agent → everything below`,
 `builtins → tool/events`, `tool → ask/errors/events/human`,
 `human → ask/events`, `events → ask/usage`, `parts → events/usage`; then `providers → core`,
-`mcp → core`, `skills → core`; then `cli → void_agent`. Concept modules
+`mcp → core`, `skills → core`, then `evals → core/mcp/providers`; then
+`cli → void_agent`. Concept modules
 never import providers, and the framework never imports the CLI: a client
 that mounts an agent is an application above it.
 

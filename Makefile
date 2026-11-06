@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup check test cli cli-build screenshots
+.PHONY: help setup check test cli cli-build screenshots evals
 
 help: ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(firstword $(MAKEFILE_LIST)) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -24,6 +24,11 @@ test: ## the test suite alone
 
 cli: ## run the terminal UI on the host (uv); reads .env for the key
 	uv run $(if $(wildcard .env),--env-file .env) python -m cli
+
+# A suite's paths are its own, so ARGS names the config wherever it is:
+# make evals ARGS="run path/to/eval.toml --persona reader"
+evals: ## ask a suite's questions and record every run (ARGS="run CONFIG …"; reads .env)
+	uv run $(if $(wildcard .env),--env-file .env) python -m void_agent.evals $(ARGS)
 
 # The flags live in the script, not here: Windows has neither `.venv/bin/rg`
 # nor `sh`, and the release matrix (.github/workflows/ci.yml) builds there

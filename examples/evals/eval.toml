@@ -1,0 +1,52 @@
+# An example suite: a small agent over void's own toolbox server, which
+# reads the files in data/. Run it from the repository's root:
+#
+#   make evals ARGS="run examples/evals/eval.toml"
+#
+# It calls the model named below with the key the environment holds.
+
+name = "example"
+# A function of the model and the mounted tools that returns the agent:
+# `package.module:function` (with `paths` on sys.path), or a file beside
+# this one.
+agent = "agent.py:build"
+cases = ["cases.toml"]
+runs = "runs"
+
+[model]
+provider = "openai"
+model = "gpt-6-luna"
+effort = "low"
+# Merged into every request: here, OpenAI's summary of its reasoning,
+# which the record keeps beside each step.
+extra = { reasoning = { summary = "auto" } }
+
+[context]
+# What a later turn reads of an earlier one's tool results, as a server
+# would cut it.
+tool_output_limit = 2000
+tools = "mounted"
+
+[limits]
+turn_seconds = 300
+
+# The person a case with a brief is asked by, when the agent asks them
+# something back.
+[person]
+provider = "openai"
+model = "gpt-6-luna"
+effort = "low"
+rounds = 2
+# Who the person is, in every case; each case's brief says what they want.
+role = "someone at a small trading company who asks about its orders"
+
+[servers.toolbox]
+command = "uv"
+args = ["run", "python", "-m", "cli", "--serve-toolbox", "${SUITE_DIR}/data"]
+timeout = 60
+
+# Who a question is asked as. A persona sets its own credentials for a
+# server (`servers.<name>.headers`) and filters the tools it is offered.
+[personas.reader]
+description = "may read the files, never change them"
+exclude = ["write_file", "edit_file", "move_file", "run"]

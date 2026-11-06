@@ -1,0 +1,5 @@
+code,date,customer,country,product,qty,unit_price,currency
+PI-101,2026-07-02,Northwind GmbH,Germany,Panel PC 15,10,862,USD
+PI-102,2026-07-17,Northwind GmbH,Germany,Panel PC 15,5,885,USD
+PI-103,2026-07-21,Contoso Ltd,United Kingdom,Box PC i5,40,243,USD
+PI-104,2026-07-28,Fabrikam SAS,France,Box PC i5,20,251,EUR

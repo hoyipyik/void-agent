@@ -31,6 +31,10 @@ openai = ["openai>=1.40"]
 # `void_agent.mcp` — an MCP server's tools as this runtime's tools.
 mcp = ["mcp>=2.2"]
 # `void_agent.skills` needs nothing: a skill is Markdown in a folder.
+# `void_agent.evals` — a suite's questions put to an agent, every run recorded
+# whole. It mounts the suite's MCP servers; add the extra of each provider the
+# suite names (`void-agent[evals,anthropic]`).
+evals = ["mcp>=2.2"]
 
 [dependency-groups]
 # The CLI (cli/) ships in the repo, not the wheel, so its dependencies are a
@@ -88,5 +92,5 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 "tests/test_cli_emphasis.py" = ["RUF001", "RUF002"]
 
 [tool.pyright]
-include = ["src", "cli", "tests", "scripts"]
+include = ["src", "cli", "examples", "tests", "scripts"]
 typeCheckingMode = "strict"

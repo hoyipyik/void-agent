@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from itertools import pairwise
@@ -487,3 +488,24 @@ async def test_an_agent_that_cannot_be_built_fails_the_case_before_its_turn() ->
     assert record["outcome"] == "error"
     assert record["error"]["stage"] == "build"
     assert "no prompt" in record["error"]["detail"]
+
+
+async def test_a_command_server_that_does_not_answer_its_mount_in_time_fails_the_case() -> None:
+    """The suite's `timeout` bounds a server run as a command as it does one
+    reached by URL: a process that never speaks the protocol does not hold
+    the case forever."""
+    silent = ServerSpec(
+        name="files",
+        command=sys.executable,
+        args=("-c", "import sys; sys.stdin.read()"),
+        timeout=0.5,
+    )
+    the_setup = Setup(build=build, llm=ScriptedLlm([say("never")]))
+
+    record = await run_case(
+        case("Who is Northwind?"), Persona("reader", servers={"files": silent}), the_setup
+    )
+
+    assert record["outcome"] == "error"
+    assert record["error"]["stage"] == "mount"
+    assert "in time" in record["error"]["text"]

@@ -355,3 +355,31 @@ async def test_a_server_with_nothing_to_mount_is_a_mistake_and_not_a_failed_moun
     with pytest.raises(RuntimeError, match="needs a client"):
         async with McpServer():
             pass
+
+
+# A server run as a command starts a Python and imports the SDK before it
+# answers: long enough for that here, short enough that a stuck call is over
+# soon.
+STDIO_SOON = 3.0
+STALLING = str(Path(__file__).parent / "mcp_stdio_server.py")
+
+
+async def test_a_command_that_does_not_answer_the_mount_in_time_is_unreachable() -> None:
+    """It started, and reads, and never speaks the protocol: without a
+    timeout the mount would wait for it forever."""
+    silent = McpServer.stdio(sys.executable, "-c", "import sys; sys.stdin.read()", timeout=0.5)
+    with pytest.raises(McpUnreachable) as late:
+        async with silent:
+            pass
+    assert "in time" in str(late.value)
+
+
+async def test_a_call_a_command_does_not_answer_in_time_fails_and_stays_internal() -> None:
+    async with McpServer.stdio(sys.executable, STALLING, timeout=STDIO_SOON) as server:
+        assert await server.tool("ping").invoke({}, EventSender()) == "pong"
+        with pytest.raises(Internal) as internal:
+            await server.tool("numbers").invoke({}, EventSender())
+        # The call that timed out cost only itself: the next one is answered.
+        assert await server.tool("ping").invoke({}, EventSender()) == "pong"
+    assert "timed out" in str(internal.value)
+    assert "timed out" not in public_text(internal.value)

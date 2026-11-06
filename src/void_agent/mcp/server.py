@@ -45,6 +45,7 @@ class McpServer:
         # Set only by `http(…)`.
         self._url: str | None = None
         self._headers: dict[str, str] = {}
+        # Set by `stdio(…)` and `http(…)`.
         self._timeout: float | None = None
 
     @classmethod
@@ -54,20 +55,29 @@ class McpServer:
         *arguments: str,
         env: Mapping[str, str] | None = None,
         errlog: Path | TextIO | None = None,
+        timeout: float | None = None,
     ) -> McpServer:
         """A server run as a subprocess: `McpServer.stdio("npx", "-y", "…")`.
 
         `errlog` is where the child's own noise goes. Left out, it goes to
         this process's stderr, which is right for a script and wrong for a
         terminal UI — there it is the canvas being drawn on. A `Path` is
-        opened for the life of the server and closed with it."""
+        opened for the life of the server and closed with it.
+
+        `timeout` is as `http`'s: the seconds the server may take to be
+        mounted — the process started and the handshake done — and to answer
+        each call after that. Left out, nothing bounds either: a process that
+        starts and never speaks the protocol holds the mount forever, and a
+        stuck call holds its turn."""
         parameters = StdioServerParameters(
             command=command, args=list(arguments), env=dict(env) if env is not None else None
         )
         if errlog is None:
-            return cls(Client(parameters))
-        server = cls()
-        server._parameters, server._errlog = parameters, errlog
+            server = cls(Client(parameters, read_timeout_seconds=timeout))
+        else:
+            server = cls()
+            server._parameters, server._errlog = parameters, errlog
+        server._timeout = timeout
         return server
 
     @classmethod
@@ -165,7 +175,9 @@ class McpServer:
                 errlog = stack.enter_context(self._errlog.open("w", encoding="utf-8"))
             else:
                 errlog = self._errlog
-            return Client(stdio_client(self._parameters, errlog=errlog))
+            return Client(
+                stdio_client(self._parameters, errlog=errlog), read_timeout_seconds=self._timeout
+            )
         return self._client
 
     @property

@@ -243,9 +243,11 @@ void_agent.evals …`.
 ```text
 runs/<stamp>[-label]/
   run.json             what was run: suite, agent, model, context, limits,
-                       personas (never credentials), each repository's commit,
-                       branch and whether it had changes, the keys in order,
-                       start and end
+                       personas (never credentials), the void-agent that asked
+                       (`void_agent`: its version, and the commit a git install
+                       came from or the checkout's revision), the commit, branch
+                       and changes of the repository of each of the suite's
+                       `paths`, the keys in order, start and end
   cases/<key>.json     one record per case (key = id, or id~n with --repeat)
   blobs/<sha256>.json  what records share: `specs`, `catalog`
   report.md
@@ -296,8 +298,9 @@ its answer.
 - To compare two versions of an agent, run the same cases on each (the
   same data behind the servers, `--label before` / `--label after`), and
   `--repeat` at least 2: the same question twice differs on its own.
-- `run.json` names each repository's commit and whether it had changes:
-  check it before comparing runs.
+- `run.json` (and the head of `report.md`) names the void-agent that
+  asked and each repository's commit and whether it had changes: check it
+  before comparing runs.
 
 ## Rules
 
